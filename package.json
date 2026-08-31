@@ -1,0 +1,12 @@
+{
+  "name": "tether-treat",
+  "version": "1.0.0",
+  "description": "Tether Treat — a candy-colored rope-cutting physics sequencing puzzle.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "test": "node test/run-tests.js && node test/extended-tests.js",
+    "validate": "node test/run-tests.js --levels-only",
+    "serve": "node server.js --standalone"
+  }
+}

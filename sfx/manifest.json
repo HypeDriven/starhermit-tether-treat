@@ -1,0 +1,74 @@
+[
+  {
+    "name": "rope-snip",
+    "seconds": 1,
+    "prompt": "A single sharp snip of scissors cutting through a taut hemp rope, quick fibrous snap.",
+    "event": "cut"
+  },
+  {
+    "name": "bubble-attach",
+    "seconds": 1,
+    "prompt": "A soft soap bubble gently touching and sticking to a surface with a wet suction blip.",
+    "event": "bubble-attach"
+  },
+  {
+    "name": "bubble-pop",
+    "seconds": 1,
+    "prompt": "A soap bubble bursting with a light airy pop.",
+    "event": "bubble-pop"
+  },
+  {
+    "name": "fan-burst",
+    "seconds": 2,
+    "prompt": "A short gust of wind from a small electric fan, an airy whoosh that rises and fades.",
+    "event": "fan"
+  },
+  {
+    "name": "bumper-boing",
+    "seconds": 1,
+    "prompt": "A rubber drum bumper being struck, a springy boing with a soft hollow thud.",
+    "event": "bumper"
+  },
+  {
+    "name": "star-chime",
+    "seconds": 2,
+    "prompt": "A bright twinkling chime sparkle, like a tiny bell glissando collecting a star.",
+    "event": "star"
+  },
+  {
+    "name": "hazard-clank",
+    "seconds": 1,
+    "prompt": "A hard candy cracking against a spinning metal gear, sharp clank with a crunchy crack.",
+    "event": "hazard"
+  },
+  {
+    "name": "delivered-fanfare",
+    "seconds": 3,
+    "prompt": "A cheerful short fanfare of bells and chimes celebrating a treat being delivered.",
+    "event": "delivered"
+  },
+  {
+    "name": "stalled-wind-down",
+    "seconds": 2,
+    "prompt": "A wind-up mechanical toy winding down to a stop, a descending slowing whir.",
+    "event": "stalled"
+  },
+  {
+    "name": "time-up-buzzer",
+    "seconds": 2,
+    "prompt": "A soft game-show style time-up buzzer, two short low flat tones.",
+    "event": "time-up"
+  },
+  {
+    "name": "out-fall",
+    "seconds": 2,
+    "prompt": "A cartoon falling whistle dropping away, ending in a soft distant thud.",
+    "event": "out"
+  },
+  {
+    "name": "error-buzz",
+    "seconds": 1,
+    "prompt": "A short low error buzz from a small speaker, flat and dismissive.",
+    "event": "errorBuzz"
+  }
+]

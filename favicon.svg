@@ -1,4 +1,8 @@
-<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='#251a2b'/>
-<circle cx='22' cy='22' r='9' fill='#ff9ecb'/><circle cx='44' cy='46' r='9' fill='#8fd6a0'/>
-<path d='M26 28 40 41' stroke='#e8e4f0' stroke-width='4' stroke-linecap='round' stroke-dasharray='5 4'/>
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'>
+<rect width='64' height='64' rx='13' fill='#1a1230'/>
+<path d='M34 -2 L32 26' stroke='#7ef0d4' stroke-width='5' stroke-linecap='round'/>
+<path d='M20 33 L9 38 L20 43 Z' fill='#ff7eb6'/>
+<path d='M44 33 L55 38 L44 43 Z' fill='#ff7eb6'/>
+<circle cx='32' cy='38' r='12' fill='#ff7eb6'/>
+<path d='M49 7 L51.8 14.2 L59 17 L51.8 19.8 L49 27 L46.2 19.8 L39 17 L46.2 14.2 Z' fill='#ffd94a'/>
 </svg>

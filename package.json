@@ -5,8 +5,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node test/run-tests.js && node test/extended-tests.js",
-    "validate": "node test/run-tests.js --levels-only",
+    "test": "node tests/run-tests.js && node tests/extended-tests.js",
+    "validate": "node tests/run-tests.js --levels-only",
     "serve": "node server.js --standalone"
   }
 }

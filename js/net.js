@@ -1,11 +1,16 @@
 // net.js — graceful-degrading platform integration.
 //
-// Everything here tolerates failure: the game is fully playable offline.
-// Server clock is fetched once at boot for the daily key; leaderboards and
-// score submission fall back to local-only behavior. Funnel events are
-// anonymous and sent via sendBeacon, silently dropped when offline.
+// Platform reality: in production the host serves exactly ONE API route,
+// GET /api/v1/time. Every other /api/v1/* route (events, leaderboard,
+// scores, daily, ...) returns 404 once deployed — this game's own server.js
+// is not run by the platform. So nothing may be requested unless it is
+// known to exist: the time endpoint is probed ONCE at startup to set the
+// 'hosted' flag, and every other hosted feature is a local no-op that never
+// issues a request. The game remains fully playable offline.
 
 const TIMEOUT_MS = 2000;
+
+let hosted = false;
 
 function fetchJson(url, opts = {}) {
   const ctrl = new AbortController();
@@ -16,8 +21,8 @@ function fetchJson(url, opts = {}) {
 }
 
 /**
- * Get the authoritative UTC date key ('YYYY-MM-DD'). Tries /api/v1/time and
- * applies the round-trip offset; on failure uses the local clock.
+ * Get the authoritative UTC date key ('YYYY-MM-DD'). Probes /api/v1/time
+ * once and applies the round-trip offset; on failure uses the local clock.
  * Returns {dateKey, nextDailyMs, source:'server'|'local', offsetMs}.
  */
 export async function serverClock() {
@@ -35,6 +40,7 @@ export async function serverClock() {
     const t1 = Date.now();
     const serverMs = new Date(res.time).getTime();
     if (!Number.isFinite(serverMs)) return local();
+    hosted = true;
     const offset = serverMs - (t0 + t1) / 2;
     const now = Date.now() + offset;
     const d = new Date(now);
@@ -44,41 +50,24 @@ export async function serverClock() {
       source: 'server', offsetMs: offset,
     };
   } catch (e) {
+    hosted = false;
     return local();
   }
 }
 
-/** Fetch a leaderboard board; resolves to null when unavailable. */
+/** Leaderboards have no production route; resolve to the local fallback. */
 export async function fetchLeaderboard(board) {
-  try {
-    const res = await fetchJson('/api/v1/leaderboard?board=' + encodeURIComponent(board));
-    return Array.isArray(res.entries) ? res.entries : null;
-  } catch (e) {
-    return null;
-  }
+  void hosted; void board;
+  return null;
 }
 
-/** Submit a ranked score envelope; resolves to true on acceptance. */
+/** Score submission has no production route; the score is kept locally. */
 export async function submitScore(payload) {
-  try {
-    await fetchJson('/api/v1/scores', {
-      method: 'POST',
-      body: JSON.stringify(payload),
-      headers: { 'content-type': 'application/json' },
-      timeout: 4000,
-    });
-    return true;
-  } catch (e) {
-    return false;
-  }
+  void hosted; void payload;
+  return false;
 }
 
-/** Anonymous funnel event; fire-and-forget, never throws. */
+/** Anonymous funnel event; there is no hosted events route — drop locally. */
 export function funnelEvent(type, data) {
-  try {
-    const body = JSON.stringify({ type, data: data || {}, at: Date.now() });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/v1/events', new Blob([body], { type: 'application/json' }));
-    }
-  } catch (e) { /* offline or blocked — drop silently */ }
+  void hosted; void type; void data;
 }

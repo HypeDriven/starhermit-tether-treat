@@ -3,7 +3,9 @@ import { createGame, applyCommand, step, scoreOf } from '../js/rules.js';
 import { validateLevelData, runSolution } from '../js/content.js';
 import { TUTORIALS, LEVELS, CHALLENGES } from '../js/levels.js';
 
-const only = process.argv[2] || null;
+// Positional argument selects a single level id; flags (e.g. --levels-only,
+// used by `npm run validate`) must not be mistaken for a level id.
+const only = (process.argv[2] && !process.argv[2].startsWith('--')) ? process.argv[2] : null;
 let pass = 0; let fail = 0; const failures = [];
 
 function check(cond) { if (cond) pass++; else { fail++; failures.push('check'); } }

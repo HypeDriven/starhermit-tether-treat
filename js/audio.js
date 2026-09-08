@@ -109,7 +109,9 @@ export class AudioEngine {
   loadSample(name) {
     if (this.sfxCache.has(name)) return;
     this.sfxCache.set(name, 'loading');
-    fetch('/sfx/' + name + '.opus')
+    // Resolve against this module's URL so the game also works when the
+    // platform serves it from a sub-path rather than the domain root.
+    fetch(new URL('../sfx/' + name + '.opus', import.meta.url))
       .then((res) => {
         if (!res.ok) throw new Error('http ' + res.status);
         return res.arrayBuffer();
@@ -208,6 +210,7 @@ export class AudioEngine {
     f.type = 'lowpass'; f.frequency.value = 320;
     src.connect(f); f.connect(this.buses.ambience);
     src.start();
+    this.ambienceSrc = src;
     // Seeded-feeling arpeggio on a pentatonic ladder derived from base freq.
     const scale = [1, 9 / 8, 5 / 4, 3 / 2, 5 / 3, 2];
     this.musicTimer = setInterval(() => {
@@ -223,6 +226,13 @@ export class AudioEngine {
   stopMusic() {
     if (this.musicTimer) clearInterval(this.musicTimer);
     this.musicTimer = null;
+    // The looping ambience pad must stop too, otherwise every new round
+    // layers another pad on top of the previous ones.
+    if (this.ambienceSrc) {
+      try { this.ambienceSrc.stop(); } catch (e) { /* already stopped */ }
+      this.ambienceSrc.disconnect();
+      this.ambienceSrc = null;
+    }
     this.started = false;
   }
 }

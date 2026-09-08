@@ -329,7 +329,7 @@ async function handleStatic(req, res, url) {
   }
   if (pathname === '/') pathname = '/index.html';
   // Never serve dotfiles (.git, .env, …) at any depth.
-  if (pathname.split('/').some((seg) => seg.startsWith('.'))) {
+  if (pathname.split('/').some((seg) => seg.startsWith('.') || ['data', 'node_modules', 'tests'].includes(seg))) {
     return send(res, 404, 'not found', 'text/plain');
   }
   const filePath = resolve(ROOT, '.' + pathname);

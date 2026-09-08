@@ -181,6 +181,10 @@ export class Input {
     document.addEventListener('keydown', (e) => {
       const tag = e.target && e.target.tagName;
       if (tag === 'INPUT' || tag === 'SELECT' || tag === 'TEXTAREA') return;
+      // A focused button/link owns Enter and Space: activating the mirror
+      // button the player actually chose must not be replaced by the
+      // canvas focus target's action.
+      const onControl = tag === 'BUTTON' || tag === 'A';
       const inRound = this.ctx.isActive();
       switch (e.key) {
         case 'ArrowLeft': case 'ArrowUp':
@@ -190,7 +194,7 @@ export class Input {
           if (inRound) { this.cycleFocus(1); e.preventDefault(); }
           break;
         case 'Enter': case ' ':
-          if (inRound) { this.confirmFocus(); e.preventDefault(); }
+          if (inRound && !onControl) { this.confirmFocus(); e.preventDefault(); }
           break;
         case 'Escape': this.ctx.onPause(); e.preventDefault(); break;
         case 'u': case 'U': if (inRound) this.ctx.onUndo(); break;

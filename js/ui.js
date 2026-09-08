@@ -492,7 +492,7 @@ export class UI {
     if (par && par.actions) facts.push('Par ' + par.actions + ' actions — you used ' + score.actionsUsed + '.');
     if (par && par.seconds) facts.push('Par ' + par.seconds + 's — you took ' + (score.ticks / 120).toFixed(1) + 's.');
     if (submitted === true) facts.push('Score submitted to the leaderboard.');
-    if (submitted === false) facts.push('Score saved locally — leaderboard unreachable (you can keep playing).');
+    if (submitted === false) facts.push('Score saved to your local board.');
     if (facts.length) wrap.appendChild(el('p', { class: 'tt-dim' }, facts.join(' ')));
 
     for (const key of achievements || []) {
@@ -583,6 +583,12 @@ export class UI {
 
   /** Rebuild the board-state mirror list from legal actions. */
   updateMirror(actions, focusIndex) {
+    // The list is rebuilt after every action; keyboard users must not be
+    // dumped back to <body>, so remember where the focus was.
+    const active = document.activeElement;
+    const focusedRow = this.mirrorList.contains(active)
+      ? Array.prototype.indexOf.call(this.mirrorList.children, active.closest('li'))
+      : -1;
     this.mirrorList.replaceChildren();
     if (!actions.length) {
       this.mirrorList.appendChild(el('li', { class: 'tt-dim' }, 'No actions available right now.'));
@@ -598,6 +604,11 @@ export class UI {
       li.appendChild(b);
       this.mirrorList.appendChild(li);
     });
+    if (focusedRow >= 0) {
+      const row = this.mirrorList.children[Math.min(focusedRow, actions.length - 1)];
+      const b = row && row.querySelector('button');
+      if (b) b.focus();
+    }
   }
 
   glMessage(msg) {

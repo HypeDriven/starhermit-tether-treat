@@ -11,7 +11,7 @@
 
 import { TICK_RATE, STATUS, scoreOf } from './rules.js';
 import {
-  THEMES, BUILD_ID, checkAchievements, generateDailyLevel, generatePracticeLevel,
+  THEMES, BUILD_ID, ACHIEVEMENTS, checkAchievements, generateDailyLevel, generatePracticeLevel,
 } from './content.js';
 import { TUTORIALS, LEVELS, CHALLENGES, levelById } from './levels.js';
 import { Session } from './session.js';
@@ -70,7 +70,16 @@ class App {
   // -------------------------------------------------------------------------
   // Navigation
   // -------------------------------------------------------------------------
+  /** Cancel any pending countdown / resolve timers from a previous round. */
+  _clearTimers() {
+    clearTimeout(this._cdTimer);
+    clearTimeout(this._resolveTimer);
+    this._cdTimer = null;
+    this._resolveTimer = null;
+  }
+
   goTitle() {
+    this._clearTimers();
     this.phase = 'title';
     this.session = null;
     this.audio.stopMusic();
@@ -128,6 +137,9 @@ class App {
   // Round lifecycle: preparing → countdown → active
   // -------------------------------------------------------------------------
   startRound(level, { mode, ranked }) {
+    // A restart mid-countdown or mid-resolve must not leave the previous
+    // round's timers running against the new session.
+    this._clearTimers();
     this.phase = 'preparing';
     this.session = new Session(level, { mode, ranked, roundId: mode + '-' + level.id + '-' + new Date().toISOString() });
     this.prevTreat = { x: this.session.state.treat.x, y: this.session.state.treat.y };
@@ -185,6 +197,8 @@ class App {
   refreshBoard() {
     if (!this.session) return;
     const actions = this.session.legalActions();
+    // Keep the keyboard focus index inside the (shrinking) action list.
+    if (this.input && this.input.focusIndex >= actions.length) this.input.focusIndex = 0;
     this.ui.updateMirror(actions, this.input ? this.input.focusIndex : 0);
     if (this.renderer.ok) this.renderer.setLegalTargets(actions, this.session.state);
   }
@@ -333,7 +347,7 @@ class App {
 
   /** Skip/fast-forward: settle instantly to the deterministic end state. */
   skip() {
-    if (!this.session) return;
+    if (!this.session || this.phase !== 'active') return;
     this.session.settle();
     this.ui.updateHud(this.session, this.level);
     if (this.session.state.status !== STATUS.ACTIVE) {
@@ -349,12 +363,13 @@ class App {
     this.phase = 'resolving';
     this.ui.showHud(false);
     const delay = this.settings.reducedMotion ? 300 : 1300;
-    setTimeout(() => this.finishRound(), delay);
+    this._resolveTimer = setTimeout(() => this.finishRound(), delay);
   }
 
   async finishRound() {
-    if (!this.session) return;
+    if (!this.session || this.phase !== 'resolving') return;
     this.phase = 'results';
+    const completedSession = this.session;
     const score = this.session.score();
     const state = this.session.state;
     const won = score.delivered;
@@ -382,7 +397,10 @@ class App {
     }
     saveProgress(this.progress);
     this.ui.setTotalStars(this.progress.totalStars);
-    for (const key of achievements) this.ui.toast('Achievement unlocked!');
+    for (const key of achievements) {
+      const a = ACHIEVEMENTS.find((x) => x.key === key);
+      this.ui.toast('Achievement unlocked — ' + (a ? a.name : key) + '!');
+    }
 
     // Ranked submission (recoverable on failure; never blocks play).
     let submitted = null;
@@ -393,7 +411,8 @@ class App {
       });
       saveProgress(this.progress);
       submitted = await submitScore({ board: this.mode === 'daily' ? 'daily' : 'global', envelope });
-      if (!submitted) this.ui.toast('Leaderboard unreachable — score kept locally.');
+      if (this.session !== completedSession || this.phase !== 'results') return;
+      if (!submitted) this.ui.toast('Score saved to your local board.');
     }
 
     funnelEvent('round-end', {

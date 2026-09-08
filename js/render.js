@@ -169,10 +169,10 @@ export class Renderer {
     this.camera.updateProjectionMatrix();
   }
 
-  /** Fit the camera so the level bounds fill the view with margin. */
+  /** Fit the camera so the played area fills the view with margin. */
   fitCamera() {
-    if (!this.boundsW) return;
-    const { cx, cy, w, h } = this.boundsW;
+    if (!this.frameW && !this.boundsW) return;
+    const { cx, cy, w, h } = this.frameW || this.boundsW;
     const fovV = this.camera.fov * Math.PI / 180;
     const distH = (h / 2 + 2) / Math.tan(fovV / 2);
     const distW = (w / 2 + 2) / (Math.tan(fovV / 2) * this.camera.aspect);
@@ -215,6 +215,7 @@ export class Renderer {
     const B = state.bounds;
     const minX = s2w(B.minX), maxX = s2w(B.maxX), minY = s2w(B.minY), maxY = s2w(B.maxY);
     this.boundsW = { cx: (minX + maxX) / 2, cy: (minY + maxY) / 2, w: maxX - minX, h: maxY - minY };
+    this.frameW = contentFrame(state, this.boundsW);
 
     // Candy playroom: gradient backdrop, floor, walls.
     const grad = this.gradientTexture(theme.bg0, theme.bg1);
@@ -434,6 +435,10 @@ export class Renderer {
     this.particlePoints.frustumCulled = false;
     g.add(this.particlePoints);
 
+    // Without this the scene renders as an empty background: every mesh built
+    // above lives on `g`, which must be attached to the scene graph.
+    this.scene.add(g);
+
     this.fitCamera();
     this.resize();
   }
@@ -483,6 +488,10 @@ export class Renderer {
     if (r.cut) {
       if (rec.mesh) { rec.mesh.visible = false; rec.proxy.visible = false; rec.glyph.visible = false; }
       return;
+    }
+    // An undo can restore a previously cut rope: make it visible/pickable again.
+    if (rec.mesh && !rec.mesh.visible) {
+      rec.mesh.visible = true; rec.proxy.visible = true; rec.glyph.visible = true;
     }
     const tx = s2w(state.treat.x), ty = s2w(state.treat.y);
     const mid = new THREE.Vector3((ax + tx) / 2, (ay + ty) / 2 - 0.25, 0); // gentle droop
@@ -631,11 +640,18 @@ export class Renderer {
       }
     }
 
-    // Ropes follow anchors/treat.
-    for (const rec of this.meshes.ropes.values()) this.rebuildRope(rec, state);
+    // Ropes follow anchors/treat. Re-bind by id every frame: an undo replaces
+    // the whole state object, so cached record references go stale.
+    for (const [id, rec] of this.meshes.ropes) {
+      const r = state.ropes.find((x) => x.id === id);
+      if (r) rec.rope = r;
+      this.rebuildRope(rec, state);
+    }
 
     // Sliders move their carriages.
     for (const [id, rec] of this.meshes.sliders) {
+      const s = state.sliders.find((x) => x.id === id);
+      if (s) rec.slider = s;
       rec.carriage.position.set(s2w(rec.slider.x), s2w(rec.slider.y), 0);
     }
 
@@ -764,6 +780,43 @@ export class Renderer {
     this.disposed = true;
     if (this._ok) this.renderer.dispose();
   }
+}
+
+/**
+ * Camera framing box: the area the round is actually played in (treat,
+ * recipient, anchors, stars, hazards and helpers) plus margin, clamped to the
+ * level bounds. The generous default bounds exist for out-of-bounds rules;
+ * framing them directly would shrink the playfield to a sliver of the view.
+ */
+function contentFrame(state, boundsW) {
+  const pts = [
+    { x: s2w(state.treat.x), y: s2w(state.treat.y) },
+    { x: s2w(state.recipient.x), y: s2w(state.recipient.y) },
+  ];
+  for (const r of state.ropes) if (r.slider < 0) pts.push({ x: s2w(r.ax), y: s2w(r.ay) });
+  for (const s of state.sliders) {
+    pts.push({ x: s2w(s.x0), y: s2w(s.y0) }, { x: s2w(s.x1), y: s2w(s.y1) });
+  }
+  for (const coll of ['stars', 'bubbles', 'bumpers', 'spikes']) {
+    for (const e of state[coll]) pts.push({ x: s2w(e.x), y: s2w(e.y) });
+  }
+  for (const f of state.fans) {
+    pts.push({ x: s2w(f.x0), y: s2w(f.y0) }, { x: s2w(f.x1), y: s2w(f.y1) });
+  }
+  const MARGIN = 3;
+  const MIN_W = 14;
+  const MIN_H = 11;
+  let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
+  for (const p of pts) {
+    minX = Math.min(minX, p.x); maxX = Math.max(maxX, p.x);
+    minY = Math.min(minY, p.y); maxY = Math.max(maxY, p.y);
+  }
+  if (!Number.isFinite(minX)) return boundsW;
+  const cx = (minX + maxX) / 2;
+  const cy = (minY + maxY) / 2;
+  const w = Math.min(boundsW.w, Math.max(MIN_W, maxX - minX + MARGIN * 2));
+  const h = Math.min(boundsW.h, Math.max(MIN_H, maxY - minY + MARGIN * 2));
+  return { cx, cy, w, h };
 }
 
 function segmentsIntersect(ax, ay, bx, by, cx, cy, dx, dy) {

@@ -6,7 +6,12 @@
   "private": true,
   "scripts": {
     "test": "node tests/run-tests.js && node tests/extended-tests.js",
+    "test:e2e": "node tests/e2e.mjs",
     "validate": "node tests/run-tests.js --levels-only",
     "serve": "node server.js --standalone"
+  },
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "devDependencies": {
+    "playwright-core": "^1.63.0"
   }
 }

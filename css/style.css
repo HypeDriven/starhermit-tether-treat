@@ -66,15 +66,27 @@ body {
   max-width: 1500px; width: 100%; margin: 0 auto;
 }
 @media (min-width: 1024px) {
-  .tt-main { grid-template-columns: minmax(200px, 260px) 1fr minmax(220px, 280px); }
+  /* First column is `auto`: the objective rail only claims width when it
+     actually holds content, so the playfield keeps the rest. */
+  .tt-main { grid-template-columns: auto 1fr minmax(220px, 280px); }
 }
 .tt-rail { display: flex; flex-direction: column; gap: .75rem; min-width: 0; }
 .tt-rail-left { order: 2; }
 .tt-rail-right { order: 3; }
 .tt-canvas-wrap { order: 1; }
 
+@media (min-width: 1024px) {
+  /* Three columns: objective rail / playfield / actions rail. The stacked
+     mobile order above must not push the canvas into the narrow first column. */
+  .tt-rail-left { order: 1; }
+  .tt-canvas-wrap { order: 2; }
+  .tt-rail-right { order: 3; }
+}
+
 @media (max-width: 1023px) {
-  /* Rails become stacked drawers under the canvas. */
+  /* Rails become stacked drawers under the canvas; rows keep their natural
+     height instead of spreading leftover space between them. */
+  .tt-main { align-content: start; }
   .tt-rail-left, .tt-rail-right { flex-direction: row; flex-wrap: wrap; }
 }
 

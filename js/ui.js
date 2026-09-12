@@ -60,8 +60,12 @@ export class UI {
     // Header status bar.
     this.header = el('header', { class: 'tt-header' });
     this.headerTitle = el('span', { class: 'tt-header-title' }, 'Tether Treat');
+    this.headerName = el('span', { class: 'tt-header-name', hidden: '' });
+    this.headerSync = el('span', { class: 'tt-header-sync', 'data-state': 'offline' }, 'offline');
+    this.headerId = el('div', { class: 'tt-header-id' });
+    this.headerId.append(this.headerName, this.headerSync);
     this.headerStars = el('span', { class: 'tt-header-stars', ariaLabel: 'Total stars' }, '★ 0');
-    this.header.append(this.headerTitle, this.headerStars);
+    this.header.append(this.headerTitle, this.headerId, this.headerStars);
     this.root.appendChild(this.header);
 
     // Main layout: left rail / canvas / right rail.
@@ -145,6 +149,19 @@ export class UI {
   }
 
   setTotalStars(n) { this.headerStars.textContent = '★ ' + n; }
+
+  /** Platform display name in the header identity slot (hidden offline). */
+  setPlayerName(name) {
+    this.headerName.textContent = name || '';
+    this.headerName.hidden = !name;
+  }
+
+  /** Cloud-save sync status: offline | loading | saving | synced | error. */
+  setSyncStatus(state) {
+    const text = { offline: 'offline', loading: 'syncing…', saving: 'saving…', synced: 'synced', error: 'sync error' }[state] || '';
+    this.headerSync.textContent = text;
+    this.headerSync.setAttribute('data-state', state);
+  }
 
   // -------------------------------------------------------------------------
   // Screen machinery
@@ -491,7 +508,6 @@ export class UI {
     const facts = [];
     if (par && par.actions) facts.push('Par ' + par.actions + ' actions — you used ' + score.actionsUsed + '.');
     if (par && par.seconds) facts.push('Par ' + par.seconds + 's — you took ' + (score.ticks / 120).toFixed(1) + 's.');
-    if (submitted === true) facts.push('Score submitted to the leaderboard.');
     if (submitted === false) facts.push('Score saved to your local board.');
     if (facts.length) wrap.appendChild(el('p', { class: 'tt-dim' }, facts.join(' ')));
 

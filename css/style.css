@@ -56,6 +56,14 @@ body {
   background: var(--panel); border-bottom: 1px solid #ffffff14;
 }
 .tt-header-title { font-weight: 800; letter-spacing: .03em; color: var(--accent); }
+.tt-header-id {
+  display: flex; align-items: baseline; gap: .6rem;
+  margin-left: auto; margin-right: .75rem; min-width: 0;
+}
+.tt-header-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tt-header-sync { font-size: .78rem; color: var(--dim); }
+.tt-header-sync[data-state="synced"], .tt-header-sync[data-state="offline"] { opacity: .7; }
+.tt-header-sync[data-state="error"] { color: var(--danger); }
 .tt-header-stars { color: var(--star); font-weight: 700; }
 
 /* Main three-column layout */

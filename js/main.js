@@ -11,13 +11,16 @@
 
 import { TICK_RATE, STATUS, scoreOf } from './rules.js';
 import {
-  THEMES, BUILD_ID, ACHIEVEMENTS, checkAchievements, generateDailyLevel, generatePracticeLevel,
+  THEMES, ACHIEVEMENTS, checkAchievements, generateDailyLevel, generatePracticeLevel,
 } from './content.js';
 import { TUTORIALS, LEVELS, CHALLENGES, levelById } from './levels.js';
 import { Session } from './session.js';
 import { loadSettings, saveSettings, loadProgress, saveProgress, recordLevelResult, recordLocalScore } from './storage.js';
 import { AudioEngine } from './audio.js';
-import { serverClock, fetchLeaderboard, submitScore, funnelEvent } from './net.js';
+import {
+  serverClock, fetchLeaderboard, funnelEvent,
+  initPlatform, isHosted, loadNickname, loadCloudSave, scheduleCloudSave, setSyncListener,
+} from './net.js';
 
 const DT = 1 / TICK_RATE;
 
@@ -65,7 +68,11 @@ class App {
     funnelEvent('settings-change', {});
   }
 
-  saveProgress() { saveProgress(this.progress); this.ui.setTotalStars(this.progress.totalStars); }
+  saveProgress() {
+    saveProgress(this.progress);
+    this.ui.setTotalStars(this.progress.totalStars);
+    scheduleCloudSave(this.progress); // hosted: debounced cloud mirror; no-op offline
+  }
 
   // -------------------------------------------------------------------------
   // Navigation
@@ -395,24 +402,23 @@ class App {
       achievements.push(key);
       this.progress.achievements.push(key);
     }
-    saveProgress(this.progress);
-    this.ui.setTotalStars(this.progress.totalStars);
+    this.saveProgress();
     for (const key of achievements) {
       const a = ACHIEVEMENTS.find((x) => x.key === key);
       this.ui.toast('Achievement unlocked — ' + (a ? a.name : key) + '!');
     }
 
-    // Ranked submission (recoverable on failure; never blocks play).
+    // Ranked rounds keep a verified local record (clients can never submit
+    // to platform leaderboards); it is cloud-saved with progress.
     let submitted = null;
     if (this.session.ranked) {
-      const envelope = this.session.envelope(BUILD_ID);
       recordLocalScore(this.progress, {
         total: score.total, delivered: won, levelId: this.level.id, at: Date.now(),
       });
-      saveProgress(this.progress);
-      submitted = await submitScore({ board: this.mode === 'daily' ? 'daily' : 'global', envelope });
+      this.saveProgress();
+      submitted = false;
       if (this.session !== completedSession || this.phase !== 'results') return;
-      if (!submitted) this.ui.toast('Score saved to your local board.');
+      this.ui.toast('Score saved to your local board.');
     }
 
     funnelEvent('round-end', {
@@ -542,15 +548,26 @@ async function boot() {
     onCameraReset: () => app.cameraReset(),
   });
 
-  // Launch context: read URL params, never persist tokens.
-  try {
-    const params = new URLSearchParams(location.search);
-    const scope = params.get('scope');
-    if (params.get('token') || scope) funnelEvent('start', { scope: scope || 'default' });
-  } catch (e) { /* no URL params */ }
+  // Launch context: read the launch token once (fragment first, stripped;
+  // query params are a local-dev fallback) and start the refresh cycle.
+  initPlatform();
+  setSyncListener((s) => ui.setSyncStatus(s));
 
   // Server clock for the daily key (falls back to local UTC).
   app.clock = await serverClock();
+
+  // Hosted: show the player's platform nickname and prefer the remote save.
+  if (isHosted()) {
+    ui.setPlayerName(await loadNickname());
+    const remote = await loadCloudSave();
+    if (remote && remote.progress && typeof remote.progress === 'object') {
+      // Remote wins conflicts; localStorage stays a cache of the adopted doc.
+      app.progress = Object.assign({}, app.progress, remote.progress);
+      saveProgress(app.progress);
+      ui.setTotalStars(app.progress.totalStars);
+      ui.toast('Progress synced from your StarHermit account.');
+    }
+  }
 
   // Backgrounding auto-pauses solo play; decorative animation pauses too.
   document.addEventListener('visibilitychange', () => {

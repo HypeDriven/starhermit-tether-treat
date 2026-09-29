@@ -1,4 +1,5 @@
 name=Tether Treat
+description=Cut ropes in sequence to swing a treat through stars and deliver it safely to its recipient.
 launch=index.html
 owner=2712e04e-461b-4d23-81ae-e40b429128a8
 server=server.js

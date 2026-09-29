@@ -123,13 +123,13 @@ async function startJourney(page) {
 }
 
 // ---------- one full pass ----------
-async function runPass(browser, name, ctxOpts, { full }) {
+async function runPass(browser, name, ctxOpts, { full, playPreset }) {
   const errors = [];
   const context = await browser.newContext(ctxOpts);
   const page = await context.newPage();
   page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
   page.on('console', (m) => {
-    if (m.type() !== 'error' || browserNoise.test(m.text())) return;
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
     const url = m.location()?.url || '';
     if (/Failed to load resource/.test(m.text()) && /\/api\/|\/favicon/.test(url)) return;
     errors.push(`console: ${m.text()}`);
@@ -161,6 +161,46 @@ async function runPass(browser, name, ctxOpts, { full }) {
     await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Tether Treat")', { timeout: 5000 });
     ok(`${name}: Settings open → Reduced motion on → Back to title`);
 
+    // Graphics section: Low → High, one override, applied live and persisted.
+    await page.click('button:has-text("Settings")');
+    await page.locator('#gfx-section').scrollIntoViewIfNeeded();
+    const detectedLabel = (await page.locator('#gfx-preset option[value="auto"]').textContent()).trim();
+    if (!/Auto \(detected: Low\)/.test(detectedLabel)) throw new Error(`software GPU should auto-detect Low, got "${detectedLabel}"`);
+    await page.selectOption('#gfx-preset', 'low');
+    await page.waitForFunction(() => document.body.dataset.gfxPreset === 'low', null, { timeout: 5000 });
+    await page.selectOption('#gfx-preset', 'high');
+    await page.waitForFunction(() => document.body.dataset.gfxPreset === 'high', null, { timeout: 5000 });
+    const bloomLabel = (await page.locator('#gfx-bloom option[value="preset"]').textContent()).trim();
+    if (bloomLabel !== 'From preset (On)') throw new Error(`unexpected bloom default label "${bloomLabel}"`);
+    await page.selectOption('#gfx-bloom', 'off');
+    await page.waitForFunction(() => {
+      const s = document.getElementById('gfx-summary');
+      return s && s.dataset.preset === 'high' && /shadows/.test(s.textContent) && !/bloom/.test(s.textContent);
+    }, null, { timeout: 5000 });
+    await page.locator('#gfx-fps').check();
+    await page.locator('#gfx-summary').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: SHOT('graphics', name) });
+    await page.reload({ waitUntil: 'load' });
+    await page.waitForSelector('.tt-card-play', { timeout: 15000 });
+    await page.click('button:has-text("Settings")');
+    const persisted = await page.evaluate(() => ({
+      preset: document.getElementById('gfx-preset').value,
+      bloom: document.getElementById('gfx-bloom').value,
+      fps: document.getElementById('gfx-fps').checked,
+      body: document.body.dataset.gfxPreset,
+    }));
+    if (persisted.preset !== 'high' || persisted.bloom !== 'off' || !persisted.fps || persisted.body !== 'high') {
+      throw new Error(`graphics settings not persisted: ${JSON.stringify(persisted)}`);
+    }
+    // Choosing a preset clears overrides; then play this pass at playPreset.
+    await page.selectOption('#gfx-preset', playPreset);
+    const cleared = await page.locator('#gfx-bloom').inputValue();
+    if (cleared !== 'preset') throw new Error('choosing a preset should clear overrides');
+    await page.waitForFunction((p) => document.body.dataset.gfxPreset === p, playPreset, { timeout: 5000 });
+    await page.click('button:has-text("← Back")');
+    await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Tether Treat")', { timeout: 5000 });
+    ok(`${name}: Graphics Low → High, bloom override, persisted across reload; playing at ${playPreset}`);
+
     // Play Journey → countdown → active board.
     await startJourney(page);
     const hudObj = (await page.textContent('.tt-hud-objective')).trim();
@@ -176,6 +216,12 @@ async function runPass(browser, name, ctxOpts, { full }) {
       await page.click('button:has-text("Pause (Esc)")');
       await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Paused")', { timeout: 5000 });
       await page.screenshot({ path: SHOT('pause', name) });
+      // Settings is reachable from the pause menu and Back returns to it.
+      await page.click('.tt-screens button:has-text("Settings")');
+      await page.waitForSelector('#gfx-section', { timeout: 5000 });
+      await page.click('button:has-text("← Back")');
+      await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Paused")', { timeout: 5000 });
+      if (!(await page.locator('.tt-fps').isVisible())) throw new Error('frame-rate readout should be visible');
       await page.click('button:has-text("Resume (Esc)")');
       await waitBoardResumed(page);
       ok(`${name}: Pause and Resume work`);
@@ -235,12 +281,12 @@ let browser = null;
 try {
   browser = await chromium.launch({
     executablePath: '/usr/bin/google-chrome',
-    args: ['--no-sandbox', '--enable-unsafe-swiftshader', '--mute-audio'],
+    args: ['--no-sandbox', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--mute-audio'],
   });
   console.log(`serving ${ROOT} at ${BASE}`);
-  await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true });
+  await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true, playPreset: 'ultra' });
   await runPass(browser, 'mobile',
-    { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, { full: false });
+    { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, { full: false, playPreset: 'low' });
   console.log('\nE2E PASS — tether-treat, desktop + mobile, no page errors');
 } catch (e) {
   failures++;

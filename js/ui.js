@@ -8,6 +8,8 @@
 
 import { WORLDS } from './levels.js';
 import { THEMES, ACHIEVEMENTS, COSMETICS, unlockedCosmetics } from './content.js';
+import { PRESETS, CATEGORIES, presetTier, withPreset, DEFAULT_GRAPHICS } from './gfx.js';
+import { gfxStrings, fmt, summaryText } from './gfx-i18n.js';
 
 const REASON_TEXT = {
   'delivered': 'Delivered!',
@@ -385,9 +387,16 @@ export class UI {
   // -------------------------------------------------------------------------
   // Settings
   // -------------------------------------------------------------------------
-  showSettings(settings, progress, totalStars) {
+  showSettings(settings, progress, totalStars, opts = {}) {
     const wrap = this.screenShell('Settings', 'Sound, display and access.');
-    wrap.appendChild(this.backButton());
+    if (opts.fromPause) {
+      // Opened from the pause menu: Back returns there without ending the round.
+      const back = el('button', { class: 'tt-btn tt-btn-ghost', type: 'button' }, '← Back');
+      back.addEventListener('click', () => this.showPause());
+      wrap.appendChild(back);
+    } else {
+      wrap.appendChild(this.backButton());
+    }
     const form = el('div', { class: 'tt-form' });
     const save = () => this.h.saveSettings(settings);
 
@@ -417,17 +426,7 @@ export class UI {
     toggle('Larger text', 'largeText');
     toggle('Left-handed layout', 'leftHanded');
 
-    const qlab = el('label', { class: 'tt-field' });
-    qlab.append(el('span', {}, 'Quality tier'));
-    const sel = el('select', {});
-    for (const q of ['auto', 'low', 'medium', 'high']) {
-      const o = el('option', { value: q }, q);
-      if (settings.quality === q) o.selected = true;
-      sel.appendChild(o);
-    }
-    sel.addEventListener('change', () => { settings.quality = sel.value; save(); });
-    qlab.appendChild(sel);
-    form.appendChild(qlab);
+    form.appendChild(this.graphicsSection(settings, save, opts.graphicsInfo));
 
     // Cosmetics picker (unlocked by total stars; cosmetic only).
     const unlocked = unlockedCosmetics(totalStars);
@@ -457,6 +456,121 @@ export class UI {
 
     wrap.appendChild(form);
     this.showScreen('Settings', wrap);
+  }
+
+  /**
+   * Graphics section: quality preset, render scale, per-effect overrides,
+   * adaptive resolution, frame-rate readout and a live cost summary.
+   * Changes apply immediately through saveSettings() and persist with the
+   * other settings.
+   */
+  graphicsSection(settings, save, info) {
+    const S = gfxStrings();
+    if (!settings.graphics) settings.graphics = Object.assign({}, DEFAULT_GRAPHICS);
+    const sec = el('section', { class: 'tt-gfx', id: 'gfx-section', ariaLabel: S.graphics });
+    sec.appendChild(el('h2', {}, S.graphics));
+    const tierName = (t) => S.tier[t] || t;
+    const current = () => (info && info()) || null;
+
+    const field = (label, control, id) => {
+      const lab = el('label', { class: 'tt-field', for: id });
+      lab.append(el('span', {}, label), control);
+      return lab;
+    };
+
+    // Quality preset.
+    const detected = (current() && current().detected) || 'balanced';
+    const preset = el('select', { id: 'gfx-preset', 'data-gfx': 'preset' });
+    preset.appendChild(el('option', { value: 'auto' }, fmt(S.auto, { tier: tierName(detected) })));
+    for (const p of PRESETS) preset.appendChild(el('option', { value: p }, tierName(p)));
+    preset.value = PRESETS.includes(settings.graphics.preset) ? settings.graphics.preset : 'auto';
+    sec.appendChild(field(S.quality, preset, 'gfx-preset'));
+
+    // Render scale 50–200 %.
+    const scaleWrap = el('div', { class: 'tt-gfx-range' });
+    const scale = el('input', {
+      type: 'range', id: 'gfx-scale', 'data-gfx': 'render_scale', min: '50', max: '200', step: '10',
+      value: String(Math.round((settings.graphics.render_scale || 1) * 100)),
+    });
+    const scaleVal = el('output', { class: 'tt-gfx-value', id: 'gfx-scale-value', for: 'gfx-scale' }, scale.value + '%');
+    scaleWrap.append(scale, scaleVal);
+    sec.appendChild(field(S.renderScale, scaleWrap, 'gfx-scale'));
+
+    // One select per category, defaulting to "From preset (<tier>)".
+    const catSelects = {};
+    const grid = el('div', { class: 'tt-gfx-grid' });
+    for (const [cat, tiers] of Object.entries(CATEGORIES)) {
+      const sel = el('select', { id: 'gfx-' + cat, 'data-gfx': cat });
+      sel.appendChild(el('option', { value: 'preset' }, ''));
+      for (const t of tiers) sel.appendChild(el('option', { value: t }, tierName(t)));
+      sel.value = tiers.includes(settings.graphics[cat]) ? settings.graphics[cat] : 'preset';
+      sel.addEventListener('change', () => {
+        if (sel.value === 'preset') delete settings.graphics[cat];
+        else settings.graphics[cat] = sel.value;
+        commit();
+      });
+      catSelects[cat] = sel;
+      grid.appendChild(field(S.cat[cat], sel, 'gfx-' + cat));
+    }
+    sec.appendChild(grid);
+
+    const check = (label, key, id) => {
+      const lab = el('label', { class: 'tt-field tt-field-check', for: id });
+      const inp = el('input', { type: 'checkbox', id, 'data-gfx': key });
+      inp.checked = key === 'adaptive' ? settings.graphics.adaptive !== false : !!settings.graphics[key];
+      inp.addEventListener('change', () => { settings.graphics[key] = inp.checked; commit(); });
+      lab.append(inp, el('span', {}, label));
+      sec.appendChild(lab);
+    };
+    check(S.adaptive, 'adaptive', 'gfx-adaptive');
+    check(S.showFps, 'show_fps', 'gfx-fps');
+
+    const summary = el('p', { class: 'tt-dim tt-gfx-summary', id: 'gfx-summary', ariaLive: 'polite' });
+    const note = el('p', { class: 'tt-gfx-note', id: 'gfx-note', hidden: '' });
+    sec.append(summary, note);
+
+    const refresh = () => {
+      const g = current();
+      if (!g) {
+        summary.textContent = '';
+        note.textContent = S.noWebgl;
+        note.hidden = false;
+        return;
+      }
+      const presetNow = g.resolved.preset;
+      for (const [cat, sel] of Object.entries(catSelects)) {
+        sel.options[0].textContent = fmt(S.fromPreset, { tier: tierName(presetTier(presetNow, cat)) });
+      }
+      summary.textContent = [g.gpu, summaryText(g.resolved, g.pixels, S)].join(' · ');
+      summary.setAttribute('data-preset', presetNow);
+      note.textContent = S.postFailed;
+      note.hidden = !g.postFailed;
+    };
+    const commit = () => {
+      save();
+      refresh();
+      // Pixel size settles on the next rendered frame.
+      setTimeout(refresh, 120);
+    };
+
+    preset.addEventListener('change', () => {
+      // Choosing a preset clears every per-category override.
+      settings.graphics = withPreset(settings.graphics, preset.value);
+      for (const sel of Object.values(catSelects)) sel.value = 'preset';
+      commit();
+    });
+    scale.addEventListener('input', () => {
+      scaleVal.textContent = scale.value + '%';
+      settings.graphics.render_scale = Number(scale.value) / 100;
+      commit();
+    });
+
+    refresh();
+    const timer = setInterval(() => {
+      if (!sec.isConnected) { clearInterval(timer); return; }
+      refresh();
+    }, 1000);
+    return sec;
   }
 
   // -------------------------------------------------------------------------
@@ -543,9 +657,11 @@ export class UI {
     resume.addEventListener('click', () => this.h.action('resume'));
     const restart = el('button', { class: 'tt-btn', type: 'button' }, 'Restart (R)');
     restart.addEventListener('click', () => this.h.action('restart'));
+    const settings = el('button', { class: 'tt-btn', type: 'button' }, 'Settings');
+    settings.addEventListener('click', () => this.h.showSettings(true));
     const quit = el('button', { class: 'tt-btn tt-btn-ghost', type: 'button' }, 'Quit to title');
     quit.addEventListener('click', () => this.h.goTitle());
-    row.append(resume, restart, quit);
+    row.append(resume, restart, settings, quit);
     wrap.appendChild(row);
     this.showScreen('Paused', wrap);
   }

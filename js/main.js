@@ -40,8 +40,6 @@ class App {
     this.mode = null;
     this.modeArg = null;
     this.boards = { global: null, daily: null, friends: null };
-    this.fpsSamples = [];
-    this.qualityTier = 'high';
     this._applySettings();
   }
 
@@ -56,7 +54,7 @@ class App {
     document.body.classList.toggle('tt-left-handed', s.leftHanded);
     if (this.renderer && this.renderer.ok) {
       this.renderer.opts.reducedMotion = s.reducedMotion;
-      this.renderer.setQuality(s.quality === 'auto' ? this.qualityTier : s.quality);
+      this.renderer.setGraphics(s.graphics);
     }
     this.audio.applyVolumes();
     this.ui.setTotalStars(this.progress.totalStars);
@@ -216,19 +214,6 @@ class App {
   frame(now) {
     const dt = Math.min(0.1, (now - this.lastTime) / 1000 || DT);
     this.lastTime = now;
-
-    // Auto quality: sample frame times, step down if consistently slow.
-    if (this.settings.quality === 'auto' && this.phase === 'active') {
-      this.fpsSamples.push(dt);
-      if (this.fpsSamples.length > 90) {
-        const avg = this.fpsSamples.reduce((a, b) => a + b, 0) / this.fpsSamples.length;
-        if (avg > 0.024 && this.qualityTier !== 'low') {
-          this.qualityTier = this.qualityTier === 'high' ? 'medium' : 'low';
-          this.renderer.setQuality(this.qualityTier);
-        }
-        this.fpsSamples.length = 0;
-      }
-    }
 
     if (this.phase === 'active' && this.session) {
       this.acc += dt;
@@ -489,7 +474,10 @@ async function boot() {
     startMode: (m, arg) => app.startMode(m, arg),
     showMap: () => ui.showWorldMap(app.progress, LEVELS),
     goTitle: () => app.goTitle(),
-    showSettings: () => ui.showSettings(app.settings, app.progress, app.progress.totalStars),
+    showSettings: (fromPause) => ui.showSettings(app.settings, app.progress, app.progress.totalStars, {
+      fromPause: !!fromPause,
+      graphicsInfo: () => (renderer.ok ? renderer.graphicsInfo() : null),
+    }),
     showHelp: () => ui.showHelp({ confirm: 'Enter / Space / gamepad A' }),
     showScores: (b) => app.showScores(b),
     saveSettings: () => app.saveSettings(),

@@ -5,7 +5,7 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "test": "node tests/run-tests.js && node tests/extended-tests.js",
+    "test": "node tests/run-tests.js && node tests/extended-tests.js && node --test tests/gfx.test.js",
     "test:e2e": "node tests/e2e.mjs",
     "validate": "node tests/run-tests.js --levels-only",
     "serve": "node server.js --standalone"

@@ -323,3 +323,26 @@ body {
   .tt-rail-left { grid-column: 2; grid-row: 1; max-height: 40vh; }
   .tt-rail-right { grid-column: 2; grid-row: 2; }
 }
+
+/* Graphics settings section */
+.tt-gfx {
+  display: flex; flex-direction: column; gap: .75rem;
+  border-top: 1px solid #ffffff1f; padding-top: .9rem; margin-top: .2rem;
+}
+.tt-gfx h2 { margin-top: 0; color: var(--accent2); }
+.tt-gfx-grid { display: grid; gap: .75rem; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.tt-gfx-grid .tt-field select { width: 100%; }
+.tt-gfx-range { display: flex; align-items: center; gap: .75rem; min-height: 44px; }
+.tt-gfx-range input[type="range"] { flex: 1; min-width: 0; }
+.tt-gfx-value { flex: none; min-width: 4.5ch; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tt-gfx-summary { font-size: .88rem; overflow-wrap: anywhere; }
+.tt-gfx-note { color: var(--star); font-size: .9rem; }
+.tt-gfx-note[hidden] { display: none; }
+
+/* Frame-rate readout: bottom-left of the board, never intercepts input. */
+.tt-fps {
+  position: absolute; left: .5rem; bottom: .5rem; z-index: 4;
+  pointer-events: none; font: 700 .75rem/1 ui-monospace, monospace;
+  background: #0009; color: var(--accent2); padding: .3em .5em; border-radius: 6px;
+}
+.tt-fps[hidden] { display: none; }

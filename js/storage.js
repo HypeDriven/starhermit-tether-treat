@@ -6,6 +6,7 @@
 // browsing mode (where localStorage throws) degrades to in-memory state.
 
 import { hashHex } from './rng.js';
+import { DEFAULT_GRAPHICS, migrateQuality } from './gfx.js';
 
 export const SETTINGS_KEY = 'tether-treat:settings:v1';
 export const PROGRESS_KEY = 'tether-treat:progress:v1';
@@ -16,7 +17,7 @@ export const DEFAULT_SETTINGS = {
   effects: 0.8,
   ambience: 0.5,
   muted: false,
-  quality: 'auto',        // auto | low | medium | high
+  graphics: DEFAULT_GRAPHICS, // see gfx.js: preset, render_scale, adaptive, show_fps, per-category overrides
   reducedMotion: false,
   highContrast: false,
   largeText: false,
@@ -87,7 +88,16 @@ function saveDoc(key, doc) {
   rawSet(key, JSON.stringify(out));
 }
 
-export function loadSettings() { return loadDoc(SETTINGS_KEY, DEFAULT_SETTINGS); }
+export function loadSettings() {
+  const s = loadDoc(SETTINGS_KEY, DEFAULT_SETTINGS);
+  // Older documents carried a single `quality` tier; map it onto a preset.
+  if (s.quality !== undefined && (!s.graphics || s.graphics === DEFAULT_SETTINGS.graphics)) {
+    s.graphics = Object.assign({}, DEFAULT_GRAPHICS, { preset: migrateQuality(s.quality) });
+  }
+  delete s.quality;
+  s.graphics = Object.assign({}, DEFAULT_GRAPHICS, s.graphics || {});
+  return s;
+}
 export function saveSettings(s) { saveDoc(SETTINGS_KEY, s); }
 
 export function loadProgress() {

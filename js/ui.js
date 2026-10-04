@@ -10,6 +10,7 @@ import { WORLDS } from './levels.js';
 import { THEMES, ACHIEVEMENTS, COSMETICS, unlockedCosmetics } from './content.js';
 import { PRESETS, CATEGORIES, presetTier, withPreset, DEFAULT_GRAPHICS } from './gfx.js';
 import { gfxStrings, fmt, summaryText } from './gfx-i18n.js';
+import { shText } from './sh-i18n.js';
 
 const REASON_TEXT = {
   'delivered': 'Delivered!',
@@ -253,6 +254,16 @@ export class UI {
     const help = el('button', { class: 'tt-btn', type: 'button' }, 'Help');
     help.addEventListener('click', () => this.h.showHelp());
     row.append(settings, help);
+    if (this.h.canSignIn && this.h.canSignIn()) {
+      const signin = el('button', { class: 'tt-btn', type: 'button', id: 'btn-signin' }, shText('signIn'));
+      signin.addEventListener('click', () => this.h.signIn());
+      row.appendChild(signin);
+    }
+    if (this.h.canInvite && this.h.canInvite()) {
+      const invite = el('button', { class: 'tt-btn', type: 'button', id: 'btn-invite' }, shText('invite'));
+      invite.addEventListener('click', () => this.h.invite());
+      row.appendChild(invite);
+    }
     wrap.appendChild(row);
 
     const ach = el('p', { class: 'tt-dim' },
@@ -591,9 +602,9 @@ export class UI {
     const ul = el('ul', {});
     for (const line of [
       bindings.confirm + ' — confirm focused action',
-      'Arrow keys / D-pad — cycle targets',
-      'Esc / Start — pause',
-      'U — undo · H — hint · R — restart · C — camera reset',
+      (bindings.prev || '← / ↑') + ' · ' + (bindings.next || '→ / ↓') + ' / D-pad — cycle targets',
+      (bindings.pause || 'Esc') + ' / Start — pause',
+      (bindings.undo || 'U') + ' — undo · ' + (bindings.hint || 'H') + ' — hint · ' + (bindings.restart || 'R') + ' — restart · ' + (bindings.camera || 'C') + ' — camera reset',
       'Swipe across a rope, tap bubbles and fans',
     ]) ul.appendChild(el('li', {}, line));
     keys.appendChild(ul);

@@ -24,6 +24,7 @@ export class Input {
     this.focusIndex = 0;
     this.padState = {};
     this._bindPointer();
+    this.bindings = ctx.bindings || null;
     this._bindKeyboard();
     this._padLoop = this._padLoop.bind(this);
     this._padRaf = requestAnimationFrame(this._padLoop);
@@ -186,25 +187,22 @@ export class Input {
       // canvas focus target's action.
       const onControl = tag === 'BUTTON' || tag === 'A';
       const inRound = this.ctx.isActive();
-      switch (e.key) {
-        case 'ArrowLeft': case 'ArrowUp':
-          if (inRound) { this.cycleFocus(-1); e.preventDefault(); }
-          break;
-        case 'ArrowRight': case 'ArrowDown':
-          if (inRound) { this.cycleFocus(1); e.preventDefault(); }
-          break;
-        case 'Enter': case ' ':
-          if (inRound && !onControl) { this.confirmFocus(); e.preventDefault(); }
-          break;
-        case 'Escape': this.ctx.onPause(); e.preventDefault(); break;
-        case 'u': case 'U': if (inRound) this.ctx.onUndo(); break;
-        case 'h': case 'H': if (inRound) this.ctx.onHint(); break;
-        case 'r': case 'R': this.ctx.onRestart(); break;
-        case 'c': case 'C': if (inRound) this.ctx.onCameraReset(); break;
-        default: break;
-      }
+      // Route through the effective bindings (KeyboardEvent.code).
+      const b = this.bindings || {};
+      const is = (action) => (b[action] || []).indexOf(e.code) >= 0;
+      if (is('prev')) { if (inRound) { this.cycleFocus(-1); e.preventDefault(); } }
+      else if (is('next')) { if (inRound) { this.cycleFocus(1); e.preventDefault(); } }
+      else if (is('confirm')) { if (inRound && !onControl) { this.confirmFocus(); e.preventDefault(); } }
+      else if (is('pause')) { this.ctx.onPause(); e.preventDefault(); }
+      else if (is('undo')) { if (inRound) this.ctx.onUndo(); }
+      else if (is('hint')) { if (inRound) this.ctx.onHint(); }
+      else if (is('restart')) this.ctx.onRestart();
+      else if (is('camera')) { if (inRound) this.ctx.onCameraReset(); }
     });
   }
+
+  /** Effective keyboard bindings: { action: KeyboardEvent.code[] }. */
+  setBindings(bindings) { this.bindings = bindings; }
 
   cycleFocus(dir) {
     const s = this.session;

@@ -20,7 +20,21 @@ import { AudioEngine } from './audio.js';
 import {
   serverClock, fetchLeaderboard, funnelEvent,
   initPlatform, isHosted, loadNickname, loadCloudSave, scheduleCloudSave, setSyncListener,
+  canSignIn, signIn, inviteLink, onAuthChange, loadPlatformSettings, pushSettings, loadBindings, DEFAULT_BINDINGS,
 } from './net.js';
+import { shText } from './sh-i18n.js';
+
+/** Short on-screen label for a KeyboardEvent.code. */
+function keyLabel(code) {
+  if (/^Key[A-Z]$/.test(code)) return code.slice(3);
+  if (/^Digit\d$/.test(code)) return code.slice(5);
+  return { Escape: 'Esc', ArrowLeft: '←', ArrowRight: '→', ArrowUp: '↑', ArrowDown: '↓' }[code] || code;
+}
+function keyLabels(bindings) {
+  const out = {};
+  for (const k of Object.keys(bindings)) out[k] = (bindings[k] || []).map(keyLabel).join(' / ') || '—';
+  return out;
+}
 
 const DT = 1 / TICK_RATE;
 
@@ -62,6 +76,7 @@ class App {
 
   saveSettings() {
     saveSettings(this.settings);
+    pushSettings(this.settings);
     this._applySettings();
     funnelEvent('settings-change', {});
   }
@@ -459,6 +474,12 @@ class App {
   }
 }
 
+function loadBindingsSync() {
+  const out = {};
+  for (const k of Object.keys(DEFAULT_BINDINGS)) out[k] = DEFAULT_BINDINGS[k].slice();
+  return out;
+}
+
 // ---------------------------------------------------------------------------
 // Boot (browser only)
 // ---------------------------------------------------------------------------
@@ -478,7 +499,19 @@ async function boot() {
       fromPause: !!fromPause,
       graphicsInfo: () => (renderer.ok ? renderer.graphicsInfo() : null),
     }),
-    showHelp: () => ui.showHelp({ confirm: 'Enter / Space / gamepad A' }),
+    showHelp: () => {
+      const k = keyLabels(app.bindings);
+      ui.showHelp(Object.assign({}, k, { confirm: k.confirm + ' / gamepad A' }));
+    },
+    canSignIn: () => canSignIn(),
+    canInvite: () => !!inviteLink(),
+    signIn: () => signIn(),
+    invite: async () => {
+      const url = inviteLink();
+      if (!url) return;
+      try { await navigator.clipboard.writeText(url); ui.toast(shText('copied')); }
+      catch (e) { ui.toast(shText('copyFail', { url })); }
+    },
     showScores: (b) => app.showScores(b),
     saveSettings: () => app.saveSettings(),
     saveProgress: () => app.saveProgress(),
@@ -515,6 +548,7 @@ async function boot() {
   const audio = new AudioEngine(loadSettings());
   app = new App(ui, renderer, audio);
   app.audio = audio;
+  app.bindings = loadBindingsSync();
   audio.settings = app.settings;
 
   // Audio contexts must resume on a user gesture.
@@ -534,15 +568,22 @@ async function boot() {
     onHint: () => app.hint(),
     onRestart: () => { if (app.session) app.restart(); },
     onCameraReset: () => app.cameraReset(),
+    bindings: app.bindings,
   });
 
   // Launch context: read the launch token once (fragment first, stripped;
   // query params are a local-dev fallback) and start the refresh cycle.
   initPlatform();
   setSyncListener((s) => ui.setSyncStatus(s));
+  onAuthChange((a) => {
+    if (a.signedIn) return;
+    ui.setPlayerName(null);
+    ui.toast(shText('signedOut'));
+    if (app.phase === 'title') app.goTitle(); // sign-in button returns
+  });
 
-  // Server clock for the daily key (falls back to local UTC).
-  app.clock = await serverClock();
+  // Local clock for the daily key.
+  app.clock = serverClock();
 
   // Hosted: show the player's platform nickname and prefer the remote save.
   if (isHosted()) {
@@ -555,7 +596,16 @@ async function boot() {
       ui.setTotalStars(app.progress.totalStars);
       ui.toast('Progress synced from your StarHermit account.');
     }
+    // Platform-stored preferences win over local ones.
+    const prefs = await loadPlatformSettings(app.settings);
+    if (prefs && Object.keys(prefs).length) {
+      Object.assign(app.settings, prefs);
+      saveSettings(app.settings);
+      app._applySettings();
+    }
   }
+  app.bindings = await loadBindings();
+  app.input.setBindings(app.bindings);
 
   // Backgrounding auto-pauses solo play; decorative animation pauses too.
   document.addEventListener('visibilitychange', () => {

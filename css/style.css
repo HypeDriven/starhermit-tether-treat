@@ -293,6 +293,8 @@ body {
   max-width: 70ch;
 }
 .tt-toast.show { opacity: 1; transform: none; }
+.tt-root:has(.tt-screens:not([hidden])) .tt-toasts { top: calc(.5rem + var(--sat)); bottom: auto; }
+.tt-root:has(.tt-screens:not([hidden])) .tt-screens { padding-top: calc(1rem + var(--sat) + var(--toast-h, 0px)); }
 
 /* WebGL notice */
 .tt-glnotice {

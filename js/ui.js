@@ -120,6 +120,15 @@ export class UI {
     // Toast stack (achievements, notices).
     this.toasts = el('div', { class: 'tt-toasts', ariaLive: 'polite' });
     this.root.appendChild(this.toasts);
+    // Over a screen (menu, pause, results) toasts float at the top and the
+    // screen is padded by the stack's height, so no heading or button sits
+    // under a toast. Layout px: toasts and screens share the root's zoom.
+    if (typeof MutationObserver === 'function') {
+      new MutationObserver(() => {
+        const h = this.toasts.children.length ? this.toasts.offsetHeight + 8 : 0;
+        this.root.style.setProperty('--toast-h', h + 'px');
+      }).observe(this.toasts, { childList: true });
+    }
 
     // WebGL notice.
     this.glNotice = el('div', { class: 'tt-glnotice', hidden: '', role: 'alert' });

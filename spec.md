@@ -75,7 +75,7 @@ The Three.js canvas fills the game region but is never the only UI. Menus, text,
 - **Wide desktop (≥1024 CSS px):** centered playfield, objective/progression rail on the left, contextual actions and social/status rail on the right. Maximum line length is 70 characters.
 - **Compact desktop/tablet:** playfield remains central; secondary rails collapse into drawers. Pointer hover may preview but never be required.
 - **Portrait mobile:** top safe-area status bar, square or perspective-fit playfield, bottom thumb-zone action tray, and sheet-based secondary panels. Never place critical controls under browser chrome or display cutouts.
-- **Large screens (above 1600×1000):** the whole app root zooms by `--ui-scale` from the shared `ui-scale.js` (min(w/1600, h/1000), capped at 2.5), so header, rails, board and overlays look like the ~1600×1000 layout magnified; the board's render pixel ratio is multiplied by the same scale so it stays sharp, within a backing-store budget of half a 4K frame for that boost. Unlocked achievements and the local-board save are listed on the results panel rather than toasted.
+- **Large screens (above 1600×1000):** the whole app root zooms by `--ui-scale` from the shared `ui-scale.js` (min(w/1600, h/1000), capped at 2.5), so header, rails, board and overlays look like the ~1600×1000 layout magnified; the board's render pixel ratio is multiplied by the same scale so it stays sharp, within a backing-store budget of half a 4K frame for that boost. Unlocked achievements and the local-board save are listed on the results panel rather than toasted. While a screen (menu, pause, results) is open, toasts stack at the top and the screen is padded by the stack's height, so no heading or button sits under a toast.
 - **Landscape mobile:** the board fills the available height on the left and the objective/actions rails stack in a scrollable right column, so ropes, recipient and actions are visible together; preserve at least 44×44 CSS-pixel targets and 8-pixel separation.
 - React to resize, orientation, device-pixel-ratio, safe-area insets, virtual keyboard, and visibility changes without losing input or restarting the round.
 
@@ -96,6 +96,7 @@ The Three.js canvas fills the game region but is never the only UI. Menus, text,
 - Keyboard: directional navigation among legal targets, confirm, cancel, pause, undo/hint where valid, and camera reset.
 - Gamepad: focus navigation, primary/secondary actions, pause, and remappable axes/buttons.
 - Prevent accidental double commits with action identifiers, not arbitrary long debounce timers. Provide visible drag origin, target preview, and invalid-action explanation.
+- Tapping a pick proxy maps it to its action (rope → cut, bubble → pop, fan → fan): tapping a bubble that holds the treat pops it, and an invalid tap shows its reason (e.g. "Nothing to pop yet.") in a tooltip centred just above the tapped point.
 
 ### Accessibility
 

@@ -1256,7 +1256,7 @@ export class Renderer {
     // Focus/hint marker under the highlighted target.
     if (this.highlighted) {
       const pos = this.targetWorldPos(
-        { type: this.highlighted.kind === 'rope' ? 'cut' : this.highlighted.kind, id: this.highlighted.id }, state);
+        { type: { rope: 'cut', bubble: 'pop' }[this.highlighted.kind] || this.highlighted.kind, id: this.highlighted.id }, state);
       if (pos) {
         this.marker.visible = true;
         this.marker.position.set(pos.x, pos.y - 0.8, 0);

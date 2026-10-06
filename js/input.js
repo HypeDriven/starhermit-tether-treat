@@ -12,6 +12,9 @@ import { s2w } from './physics.js';
 
 const TAP_MAX_DIST = 12;   // px
 const TAP_MAX_TIME = 400;  // ms
+// Pick-proxy kind → gameplay action type (a tapped bubble pops it).
+const ACTION_OF = { rope: 'cut', bubble: 'pop', fan: 'fan' };
+const actionOf = (kind) => ACTION_OF[kind] || kind;
 
 export class Input {
   /**
@@ -111,7 +114,7 @@ export class Input {
   _isLegal(kind, id) {
     const s = this.session;
     if (!s) return false;
-    const type = kind === 'rope' ? 'cut' : kind;
+    const type = actionOf(kind);
     return s.legalActions().some((a) => a.type === type && a.id === id);
   }
 
@@ -120,7 +123,7 @@ export class Input {
     if (!s) return;
     const hit = this._pick(e);
     if (!hit) return;
-    const type = hit.kind === 'rope' ? 'cut' : hit.kind;
+    const type = actionOf(hit.kind);
     const legal = s.legalActions().find((a) => a.type === type && a.id === hit.id);
     if (legal) {
       this.ctx.onAction(legal.type, legal.id, legal.on);

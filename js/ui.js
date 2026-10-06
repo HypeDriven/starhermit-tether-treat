@@ -144,8 +144,12 @@ export class UI {
   showTooltip(msg, x, y) {
     this.tooltip.textContent = msg;
     this.tooltip.hidden = false;
-    this.tooltip.style.left = x + 'px';
-    this.tooltip.style.top = y + 'px';
+    // x/y are viewport (visual) px; the tooltip is positioned inside the
+    // (possibly zoomed) canvas wrap, so convert to its local layout px.
+    const r = this.canvasWrap.getBoundingClientRect();
+    const z = (globalThis.UIScale && globalThis.UIScale.value) || 1;
+    this.tooltip.style.left = (x - r.left) / z + 'px';
+    this.tooltip.style.top = (y - r.top) / z + 'px';
     clearTimeout(this._tipTimer);
     this._tipTimer = setTimeout(() => { this.tooltip.hidden = true; }, 2200);
     this.announce(msg);

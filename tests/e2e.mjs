@@ -240,7 +240,9 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
     // The real win: snip the one rope via its mirror button; the physics drops
     // the treat through the 3 stars into Morsel (delivered).
     await snipRope(page);
-    await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Delivered!")', { timeout: 20000 });
+    // The sim clamps each frame's dt to 0.1 s, so at software-GL frame rates on
+    // a large (4K) backing store the drop runs slower than real time: allow 45 s.
+    await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Delivered!")', { timeout: 45000 });
     const resultTitle = (await page.textContent('.tt-screens:not([hidden]) .tt-panel h1')).trim();
     if (!/Delivered!/i.test(resultTitle)) throw new Error(`expected a win, got: "${resultTitle}"`);
     const totalRows = await page.locator('.tt-score-table dd').count();

@@ -15,6 +15,10 @@ import { SUB } from './rules.js';
 import { resolve, detectPreset, capForTouch, describe, SHADOW_MAP, PARTICLES } from './gfx.js';
 
 // Colour grade + vignette, applied in display space after the OutputPass.
+// Backing-store pixel budget for the large-screen (UIScale) boost: about a
+// 4K frame at 1×, so Ultra's supersampling doesn't multiply on huge monitors.
+const MAX_BACKING_PX = 3840 * 2160 / 2;
+
 const GradeShader = {
   uniforms: { tDiffuse: { value: null }, uAmount: { value: 1.0 }, uVignette: { value: 0.28 } },
   vertexShader: 'varying vec2 vUv; void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }',
@@ -412,7 +416,7 @@ export class Renderer {
     // Before the first frame (title screen) predict the buffer size from the canvas.
     const w = this.size[0] || this.canvas.clientWidth;
     const h = this.size[1] || this.canvas.clientHeight;
-    const ratio = Math.min(globalThis.devicePixelRatio || 1, this.q.cap) * this.q.scale * this.adaptiveScale;
+    const ratio = this._ratio(w, h);
     const px = [Math.round(w * ratio), Math.round(h * ratio)];
     return {
       gpu: this.gpu || 'unknown GPU',
@@ -513,6 +517,20 @@ export class Renderer {
     }
   }
 
+  /** Render pixel ratio for a w×h (layout px) canvas. × UIScale: the canvas sits
+   *  inside the zoomed app root, so on large screens its layout size is magnified
+   *  and the backing store must follow to stay sharp. A hard pixel budget keeps
+   *  supersampled presets on huge monitors from exploding the per-frame cost. */
+  _ratio(w, h) {
+    const dpr = globalThis.devicePixelRatio || 1;
+    const zoom = globalThis.UIScale?.value || 1;
+    const base = Math.min(dpr, this.q.cap) * this.q.scale * this.adaptiveScale;
+    if (zoom <= 1) return base;
+    // the budget only limits the large-screen boost, never the unzoomed ratio
+    const budget = globalThis.__ttPxBudget || MAX_BACKING_PX;
+    return Math.max(base, Math.min(base * zoom, Math.sqrt(budget / Math.max(1, w * h))));
+  }
+
   /** Adaptive resolution: step the render scale down when frames are slow, up when fast. */
   _adapt(ms) {
     const f = this._frames;
@@ -539,8 +557,7 @@ export class Renderer {
     const rescale = this._adapt(ms);
     const w = this.canvas.clientWidth || 640;
     const h = this.canvas.clientHeight || 480;
-    const dpr = globalThis.devicePixelRatio || 1;
-    const ratio = Math.min(dpr, this.q.cap) * this.q.scale * this.adaptiveScale;
+    const ratio = this._ratio(w, h);
     if (w !== this.size[0] || h !== this.size[1] || ratio !== this.pixelRatio || rescale) {
       this.size = [w, h];
       this.pixelRatio = ratio;

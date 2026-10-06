@@ -11,7 +11,7 @@
 
 import { TICK_RATE, STATUS, scoreOf } from './rules.js';
 import {
-  THEMES, ACHIEVEMENTS, checkAchievements, generateDailyLevel, generatePracticeLevel,
+  THEMES, checkAchievements, generateDailyLevel, generatePracticeLevel,
 } from './content.js';
 import { TUTORIALS, LEVELS, CHALLENGES, levelById } from './levels.js';
 import { Session } from './session.js';
@@ -403,10 +403,8 @@ class App {
       this.progress.achievements.push(key);
     }
     this.saveProgress();
-    for (const key of achievements) {
-      const a = ACHIEVEMENTS.find((x) => x.key === key);
-      this.ui.toast('Achievement unlocked — ' + (a ? a.name : key) + '!');
-    }
+    // No toasts for unlocks / the local-board save here: the results panel
+    // lists both, and a toast would land on its buttons on short screens.
 
     // Ranked rounds keep a verified local record (clients can never submit
     // to platform leaderboards); it is cloud-saved with progress.
@@ -418,7 +416,6 @@ class App {
       this.saveProgress();
       submitted = false;
       if (this.session !== completedSession || this.phase !== 'results') return;
-      this.ui.toast('Score saved to your local board.');
     }
 
     funnelEvent('round-end', {

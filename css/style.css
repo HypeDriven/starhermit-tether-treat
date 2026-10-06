@@ -45,7 +45,12 @@ body {
 :focus-visible { outline: 3px solid var(--focus-ring); outline-offset: 2px; border-radius: 6px; }
 
 .tt-root {
-  display: flex; flex-direction: column; min-height: 100vh;
+  /* Large screens: ui-scale.js sets --ui-scale (1 up to 1600x1000, then
+     min(w/1600, h/1000)); the whole app — header, rails, board, overlays —
+     is magnified as one, so the layout matches the ~1600x1000 one. vw/vh
+     lengths in this sheet are divided by the scale to compensate. */
+  zoom: var(--ui-scale, 1);
+  display: flex; flex-direction: column; min-height: calc(100vh / var(--ui-scale, 1));
   padding: var(--sat) var(--sar) var(--sab) var(--sal);
 }
 
@@ -272,7 +277,7 @@ body {
 
 /* Countdown */
 .tt-countdown {
-  font-size: clamp(4rem, 18vw, 9rem); font-weight: 900; color: var(--accent2);
+  font-size: clamp(4rem, calc(18vw / var(--ui-scale, 1)), 9rem); font-weight: 900; color: var(--accent2);
   text-shadow: 0 8px 40px #000;
 }
 
@@ -311,7 +316,7 @@ body {
    height on the left and both rails stack in a scrollable column on the
    right, so rope targets, recipient and actions are on screen together. */
 @media (max-height: 500px) and (orientation: landscape) {
-  .tt-root { height: 100dvh; min-height: 0; }
+  .tt-root { height: calc(100dvh / var(--ui-scale, 1)); min-height: 0; }
   .tt-header { min-height: 36px; padding: .25rem .75rem; }
   .tt-main {
     min-height: 0; padding: .4rem; gap: .5rem; align-content: stretch;
@@ -320,7 +325,7 @@ body {
   }
   .tt-canvas-wrap { grid-column: 1; grid-row: 1 / 3; aspect-ratio: auto; height: 100%; min-height: 0; }
   .tt-rail-left, .tt-rail-right { flex-direction: column; flex-wrap: nowrap; min-height: 0; overflow-y: auto; font-size: .9rem; }
-  .tt-rail-left { grid-column: 2; grid-row: 1; max-height: 40vh; }
+  .tt-rail-left { grid-column: 2; grid-row: 1; max-height: calc(40vh / var(--ui-scale, 1)); }
   .tt-rail-right { grid-column: 2; grid-row: 2; }
 }
 

@@ -18,7 +18,7 @@ import { Session } from './session.js';
 import { loadSettings, saveSettings, loadProgress, saveProgress, recordLevelResult, recordLocalScore } from './storage.js';
 import { AudioEngine } from './audio.js';
 import {
-  serverClock, fetchLeaderboard, funnelEvent,
+  serverClock, fetchLeaderboard, funnelEvent, submitScore,
   initPlatform, isHosted, loadNickname, loadCloudSave, scheduleCloudSave, setSyncListener,
   canSignIn, signIn, inviteLink, onAuthChange, loadPlatformSettings, pushSettings, loadBindings, DEFAULT_BINDINGS,
 } from './net.js';
@@ -406,8 +406,7 @@ class App {
     // No toasts for unlocks / the local-board save here: the results panel
     // lists both, and a toast would land on its buttons on short screens.
 
-    // Ranked rounds keep a verified local record (clients can never submit
-    // to platform leaderboards); it is cloud-saved with progress.
+    // Ranked rounds keep a verified local record, cloud-saved with progress.
     let submitted = null;
     if (this.session.ranked) {
       recordLocalScore(this.progress, {
@@ -438,7 +437,13 @@ class App {
       this._nextTarget = list[idx + 1];
     }
 
+    // Signed in: Journey, Daily and Challenge rounds post their total to the
+    // platform high-score board; the results show the rank.
+    const leaderboard = isHosted() && ['journey', 'daily', 'challenge'].includes(this.mode)
+      ? submitScore(score.total) : null;
+
     this.ui.showResults({
+      leaderboard,
       score: Object.assign({ reason: state.reason }, score),
       level: this.level,
       par: this.level.par,

@@ -88,6 +88,7 @@ test('standalone: no network calls', async () => {
   net.scheduleCloudSave({});
   net.pushSettings({ music: 0 });
   assert.equal(await net.fetchLeaderboard('global'), null);
+  assert.deepEqual(await net.submitScore(900), { posted: false, rank: null });
   await new Promise((r) => setTimeout(r, 900));
   assert.equal(calls.length, 0);
 });

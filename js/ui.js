@@ -628,7 +628,7 @@ export class UI {
   // -------------------------------------------------------------------------
   // Results
   // -------------------------------------------------------------------------
-  showResults({ score, level, par, won, achievements, nextLabel, submitted }) {
+  showResults({ score, level, par, won, achievements, nextLabel, submitted, leaderboard }) {
     const wrap = this.screenShell(won ? 'Delivered!' : 'Try Again', level.name);
     if (!won) wrap.appendChild(el('p', { class: 'tt-sub' }, REASON_TEXT[score.reason] || 'The treat got away.'));
 
@@ -652,6 +652,14 @@ export class UI {
     for (const key of achievements || []) {
       const a = ACHIEVEMENTS.find((x) => x.key === key);
       if (a) wrap.appendChild(el('p', { class: 'tt-ach' }, '🏅 ' + a.name + ' — ' + a.desc));
+    }
+    if (leaderboard) {
+      const lb = el('p', { class: 'tt-dim', id: 'results-lb', ariaLive: 'polite' }, shText('lbPosting'));
+      wrap.appendChild(lb);
+      leaderboard.then((r) => {
+        lb.textContent = !r.posted ? shText('lbNotPosted')
+          : r.rank ? shText('lbRank', { rank: r.rank }) : shText('lbPosted');
+      });
     }
 
     const row = el('div', { class: 'tt-row' });

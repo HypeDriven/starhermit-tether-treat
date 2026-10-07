@@ -168,7 +168,7 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - `ui`: responsive DOM shell, focus, localization, settings, overlays, accessibility mirror.
 - `audio`: buses, event mapping, focus/background behavior, decode and memory policy.
 - `content`: versioned levels, themes, tutorials, validation metadata.
-- `platform`: token-aware REST adapter — fragment launch token, Bearer auth, 45-min re-mint, profile nickname, cloud saves, read-only leaderboards — with retries and offline degradation.
+- `platform`: token-aware REST adapter — fragment launch token, Bearer auth, 45-min re-mint, profile nickname, cloud saves, leaderboard reads and `submitScore` — with retries and offline degradation.
 
 Graphics files: `js/gfx.js` (pure quality model: presets, categories, GPU detection, `resolve`, `presetTier`, `describe`), `js/gfx-i18n.js` (Graphics section strings), `js/post.js` (lazy loader for the post-processing and room-environment addons), `vendor/addons/` (three.js r160 addons matching `vendor/three.module.js`, mapped through the page's import map), `tests/gfx.test.js` (unit tests, part of `npm test`).
 
@@ -192,7 +192,7 @@ No module may mutate rules state except through a validated command. Rendering c
 ## 6. StarHermit integration
 
 ### Packaging and launch
-- Ships `starhermit.txt` (`name=Tether Treat`, `launch=index.html`, `control.*` key declarations) and a copy of the canonical `starhermit-sdk.js`, loaded by `index.html` before the game modules. `js/net.js` is a thin adapter over `window.StarHermit`: `initPlatform()` calls `StarHermit.init()`, which reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return), strips it, takes the slug from the `game_scope` claim and renews the token on the SDK's schedule. Tokens are never persisted.
+- Ships `starhermit.txt` (`name=Tether Treat`, `launch=index.html`, `server=score-script.js`, `control.*` key declarations) and a copy of the canonical `starhermit-sdk.js`, loaded by `index.html` before the game modules. `js/net.js` is a thin adapter over `window.StarHermit`: `initPlatform()` calls `StarHermit.init()`, which reads `#game_token=` (library launch) or `#access_token=` (direct sign-in return), strips it, takes the slug from the `game_scope` claim and renews the token on the SDK's schedule. Tokens are never persisted.
 - On `*.starhermit.com` without a token the title shows a localized "Sign in with StarHermit" button (`StarHermit.signIn()`), hidden when signed in and off-platform. If renewal is refused the SDK signs out: the header name clears, a localized toast says progress stays on this device, the sign-in button returns and play continues locally.
 - Without a token the game makes no request to any `/api/…` or `/ws` route, on any host including localhost. The daily countdown always uses the local UTC clock (labeled "local clock"); the client never calls the game's own `server.js` routes.
 
@@ -210,7 +210,7 @@ No module may mutate rules state except through a validated command. Rendering c
 
 ### Achievements and leaderboards
 - Declare a small static achievement set: first completion, mechanic mastery, a sustained streak, a difficult content milestone, and an accessibility-neutral long-term goal. Keys are stable, lowercase identifiers; unlocks are idempotent.
-- Provide global and friends-filtered boards for the primary metric (read via `StarHermit.leaderboard()`, nicknames via `profile()`; clients never submit — platform boards are script-owned). Ranked rounds keep replay-verified personal-best records locally, cloud-saved with progress.
+- One platform board, `high-score` (integer, higher is better, 0–100,000). Signed in, every finished Journey, Daily or Challenge round (delivered or not) posts its total through `submitScore` (`js/net.js`) → `StarHermit.submitScores`; `score-script.js` (canonical copy in the games repo's `tools/score-script.js`) range-checks it and posts it, and the results screen shows "Leaderboard rank: #N" (or "Score posted / not posted to the leaderboard."), localized in the nine locales (`js/sh-i18n.js`). Practice and lessons post nothing; standalone makes no request. Global and friends-filtered views read the board via `StarHermit.leaderboard()` with nicknames via `profile()`. Ranked rounds also keep replay-verified personal-best records locally, cloud-saved with progress.
 - For globally competitive boards, validate score claims through a lightweight authoritative script using replayable input logs and deterministic seeds. If validation is unavailable, label the board casual and apply plausibility/rate checks.
 
 ### Sessions and transport
@@ -219,7 +219,7 @@ No module may mutate rules state except through a validated command. Rendering c
 - Realtime rooms, peer relay, matchmaking, backfill, and voice are intentionally not used because they add no value to this ruleset.
 
 ### Publishing and operations
-- Keep the authoritative script inside the distribution and declare it with `server=server.js`. Choose a digest-pinned container only if profiling proves the sandbox unsuitable; no initial design here requires one.
+- Keep the platform script inside the distribution and declare it with `server=score-script.js` (`server.js` is the local dev server). Choose a digest-pinned container only if profiling proves the sandbox unsuitable; no initial design here requires one.
 - Define control defaults, achievement metadata, and versioned settings before release. Publish immutable build assets, verify the launch path, maintain migration tests for saves, and expose no secret configuration to the client.
 - Capture anonymous funnel events only for start, tutorial step, round end, retry, settings change, and error category. Avoid raw text, precise personal data, and cross-title tracking.
 

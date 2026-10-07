@@ -185,9 +185,22 @@ export async function loadBindings() {
 }
 
 // ---------------------------------------------------------------------------
-// Leaderboards — read-only. Clients can NEVER submit scores; ranked rounds
-// keep their personal-best records locally (cloud-saved with progress).
+// Leaderboards — finished rounds post through submitScore (score-script.js);
+// personal-best records also stay local (cloud-saved with progress).
 // ---------------------------------------------------------------------------
+/** Post a round total to the high-score board → { posted, rank }. Standalone: no request. */
+export async function submitScore(total) {
+  if (!isHosted()) return { posted: false, rank: null };
+  const sh = SH();
+  const keys = await sh.submitScores({ 'high-score': total }).catch(() => []);
+  if (keys.indexOf('high-score') < 0) return { posted: false, rank: null };
+  try {
+    const r = await sh.leaderboard('high-score', { pageSize: 100 });
+    const me = (r.items || []).find((i) => i.userId === sh.userId);
+    return { posted: true, rank: me ? me.rank : null };
+  } catch (e) { return { posted: true, rank: null }; }
+}
+
 export async function fetchLeaderboard(board) {
   if (!isHosted()) return null;
   const r = await SH().leaderboard(null, { pageSize: 20, scope: board === 'friends' ? 'friends' : undefined });

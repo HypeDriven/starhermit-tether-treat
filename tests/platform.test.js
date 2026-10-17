@@ -15,14 +15,25 @@ const JWT = `x.${b64url({ sub: 'u-12345678', game_scope: 'treat-test', exp: Math
 
 let n = 0;
 async function setup(hash, hostname = 'treat-test.starhermit.com') {
-  const calls = [], store = new Map();
+  const calls = [], store = new Map(), etags = new Map();
+  let version = 0;
   const fetch = async (url, init = {}) => {
     calls.push({ url, method: init.method || 'GET', body: init.body, auth: init.headers?.Authorization });
     const path = url.split('?')[0];
     const json = (o) => new Response(JSON.stringify(o));
     if (path.endsWith('/profile')) return json({ nickname: 'Morsel Fan' });
     if (path.includes('/cloud-saves/')) {
-      if (init.method === 'PUT') { store.set(path, JSON.parse(init.body).dataBase64); return new Response(null, { status: 204 }); }
+      if (path.endsWith('/info')) {
+        const slot = path.slice(0, -5);
+        return json(store.has(slot) ? { exists: true, etag: etags.get(slot) } : { exists: false });
+      }
+      if (init.method === 'PUT') {
+        const match = init.headers && init.headers['If-Match'];
+        if (match && match !== etags.get(path)) return new Response(JSON.stringify({ etag: etags.get(path) }), { status: 412 });
+        store.set(path, JSON.parse(init.body).dataBase64);
+        etags.set(path, '"v' + (++version) + '"');
+        return json({ etag: etags.get(path) });
+      }
       return store.has(path) ? new Response(Buffer.from(store.get(path), 'base64')) : new Response(null, { status: 404 });
     }
     if (path.endsWith('/settings')) return init.method === 'PATCH' ? new Response(null, { status: 204 }) : json({ settings: { muted: true } });
@@ -36,7 +47,14 @@ async function setup(hash, hostname = 'treat-test.starhermit.com') {
   globalThis.fetch = (...a) => fetch(...a);
   globalThis.StarHermit = SDK.create({ window: win, fetch });
   const net = await import('../js/net.js?case=' + (n++));
-  return { calls, sh: globalThis.StarHermit, location, net };
+  // Another device writing the slot: this client's next conditional write is refused (412).
+  const otherDevice = async (doc) => {
+    const zipped = await globalThis.StarHermit._zip('save.json', new TextEncoder().encode(JSON.stringify(doc)));
+    const slot = [...store.keys()][0];
+    store.set(slot, Buffer.from(zipped).toString('base64'));
+    etags.set(slot, '"v' + (++version) + '"');
+  };
+  return { calls, sh: globalThis.StarHermit, location, net, otherDevice };
 }
 
 test('launch token read + stripped; nickname from profile', async () => {
@@ -94,8 +112,35 @@ test('standalone: no network calls', async () => {
 });
 
 test('sign-in offered on the platform host without a token', async () => {
-  const { net, calls } = await setup('');
+  const { net, calls } = await setup('', '0b9d6f2e-3c4a-4e5b-9a7c-1d2e3f405162.starhermit.com');
   net.initPlatform();
   assert.equal(net.canSignIn(), true);
   assert.equal(calls.length, 0);
+});
+
+test('a save that loses to another device emits the conflict hook; merging keeps the best of both', async () => {
+  const { net, sh, otherDevice } = await setup('#game_token=' + JWT);
+  const { mergeProgress } = await import('../js/storage.js');
+  try {
+    net.initPlatform();
+    await net.loadCloudSave();
+    net.scheduleCloudSave({ levels: { j01: { completed: true, stars: 3, bestScore: 900 } } });
+    assert.equal(await net.flushCloudSave(), true);
+    await otherDevice({ savedAt: 1, progress: { levels: { j01: { completed: true, stars: 1, bestScore: 400 }, j02: { completed: true, stars: 2, bestScore: 500 } }, achievements: ['first-delivery'] } });
+    let conflicts = 0;
+    net.onSaveConflict(() => { conflicts++; });
+    net.scheduleCloudSave({ levels: { j01: { completed: true, stars: 3, bestScore: 900 } }, achievements: ['sweet-swing'] });
+    assert.equal(await net.flushCloudSave(), false);
+    assert.equal(conflicts, 1);
+    // The game's handler: reload, merge, save again.
+    const remote = await net.loadCloudSave();
+    const merged = mergeProgress(remote.progress, { levels: { j01: { completed: true, stars: 3, bestScore: 900 } }, achievements: ['sweet-swing'], cosmetics: { treat: 'choco' } }, 'local');
+    assert.deepEqual(merged.levels, { j01: { completed: true, stars: 3, bestScore: 900 }, j02: { completed: true, stars: 2, bestScore: 500 } });
+    assert.deepEqual(merged.achievements.sort(), ['first-delivery', 'sweet-swing']);
+    assert.equal(merged.cosmetics.treat, 'choco');
+    assert.equal(merged.totalStars, 5);
+    net.scheduleCloudSave(merged);
+    assert.equal(await net.flushCloudSave(), true);
+    assert.equal((await net.loadCloudSave()).progress.levels.j02.stars, 2);
+  } finally { sh.signOut(); }
 });

@@ -1,5 +1,5 @@
-// gfx-i18n.js — strings for the Graphics settings section. The rest of the
-// game ships in English only; this panel follows the browser language.
+// gfx-i18n.js — strings for the Graphics settings section; callers pass the
+// game locale from js/i18n.js (navigator.language is only the fallback).
 
 const EN = {
   graphics: 'Graphics',

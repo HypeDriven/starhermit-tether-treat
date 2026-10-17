@@ -20,9 +20,13 @@ import { AudioEngine } from './audio.js';
 import {
   serverClock, fetchLeaderboard, funnelEvent, submitScore,
   initPlatform, isHosted, loadNickname, loadCloudSave, scheduleCloudSave, setSyncListener,
-  canSignIn, signIn, inviteLink, onAuthChange, loadPlatformSettings, pushSettings, loadBindings, DEFAULT_BINDINGS,
+  canSignIn, signIn, inviteLink, onAuthChange, loadPlatformSettings, pushSettings, loadBindings, DEFAULT_BINDINGS, onSaveConflict,
 } from './net.js';
 import { shText } from './sh-i18n.js';
+import { t, locale, onLanguage, coachText } from './i18n.js';
+import { mergeProgress } from './storage.js';
+
+const sh = (key, vars) => shText(key, vars || {}, locale());
 
 /** Short on-screen label for a KeyboardEvent.code. */
 function keyLabel(code) {
@@ -130,13 +134,13 @@ class App {
       case 'daily': {
         level = generateDailyLevel(this.clock ? this.clock.dateKey : new Date().toISOString().slice(0, 10));
         ranked = true;
-        if (!level) { this.ui.toast('Today\'s Daily Drop is unavailable. Try again tomorrow!'); return; }
+        if (!level) { this.ui.toast(t('dailyUnavailable')); return; }
         break;
       }
       case 'practice': {
         if (!arg) { this.ui.showPractice(); return; }
         level = generatePracticeLevel(arg, Math.floor(Math.random() * 1e9));
-        if (!level) { this.ui.toast('Could not generate a practice stage — retry.'); return; }
+        if (!level) { this.ui.toast(t('practiceFailed')); return; }
         break;
       }
       case 'challenge': {
@@ -147,7 +151,7 @@ class App {
       }
       default: return;
     }
-    if (!level) { this.ui.toast('Stage not found.'); return; }
+    if (!level) { this.ui.toast(t('stageNotFound')); return; }
     this.mode = mode;
     this.modeArg = arg;
     this.startRound(level, { mode, ranked });
@@ -172,7 +176,7 @@ class App {
       this.renderer.opts.reducedMotion = this.settings.reducedMotion;
       this.renderer.buildLevel(this.session.state, theme, this.progress.cosmetics);
     } else {
-      this.ui.glMessage('WebGL is unavailable, so the 3D room can\'t be drawn. Menus and the action list below still work.');
+      this.ui.glMessage(t('webglRound'));
     }
     this.audio.startMusic(theme);
     this.ui.closeScreen();
@@ -183,19 +187,19 @@ class App {
 
     // Countdown (short under reduced motion).
     this.phase = 'countdown';
-    const steps = this.settings.reducedMotion ? ['Go!'] : ['3', '2', '1', 'Go!'];
+    const steps = this.settings.reducedMotion ? [0] : [3, 2, 1, 0];
     let i = 0;
     const tickCd = () => {
       if (this.phase !== 'countdown') return;
       if (i < steps.length) {
         this.ui.showCountdown(steps[i]);
-        this.ui.announce(steps[i] === 'Go!' ? 'Go!' : steps[i]);
+        this.ui.announce(steps[i] === 0 ? t('go') : String(steps[i]));
         i++;
         this._cdTimer = setTimeout(tickCd, steps.length === 1 ? 400 : 650);
       } else {
         this.ui.closeScreen();
         this.phase = 'active';
-        this.ui.announce('Objective: deliver the treat to Morsel.');
+        this.ui.announce(t('announceObjective'));
         const st = this.session.tutorialStep();
         if (st) this.showCoachStep();
       }
@@ -206,8 +210,9 @@ class App {
   showCoachStep() {
     const st = this.session.tutorialStep();
     if (!st) { this.ui.showCoach(null); return; }
-    const hint = st.highlight ? 'Watch the highlighted ' + st.highlight.kind + '.' : null;
-    this.ui.showCoach(st.text, hint);
+    const kind = st.highlight && { rope: 'kindRope', star: 'kindStar', bubble: 'kindBubble', fan: 'kindFan' }[st.highlight.kind];
+    const hint = st.highlight ? t('watchHighlight', { kind: kind ? t(kind) : st.highlight.kind }) : null;
+    this.ui.showCoach(coachText(this.level.id, this.session.tutorialIndex, st.text), hint);
     if (st.highlight && this.renderer.ok) {
       this.renderer.setHighlight(st.highlight.kind, st.highlight.id, 'hint');
     }
@@ -269,7 +274,7 @@ class App {
     for (const ev of events) {
       if (ev.type === 'star') {
         const got = this.session.state.stars.filter((s) => s.got).length;
-        this.ui.announce('Star collected! ' + got + ' of ' + this.session.state.stars.length + '.');
+        this.ui.announce(t('starCollected', { n: got, total: this.session.state.stars.length }));
       } else if (ev.type === 'terminal') {
         this.onTerminal(ev);
       }
@@ -286,12 +291,13 @@ class App {
     const res = this.session.dispatch(type, id, on);
     if (!res.ok) {
       this.audio.errorBuzz();
-      const msg = {
-        'not-yet': 'Not yet — follow the lesson step.',
-        'already-cut': 'Already cut.', 'already-popped': 'Already popped.',
-        'move-limit': 'No moves left.', 'not-active': 'The round is over.',
-        'disabled-action': 'That action is disabled in this challenge.',
-      }[res.reason] || ('Can\'t do that: ' + res.reason);
+      const key = {
+        'not-yet': 'errNotYet',
+        'already-cut': 'errAlreadyCut', 'already-popped': 'errAlreadyPopped',
+        'move-limit': 'errMoveLimit', 'not-active': 'errNotActive',
+        'disabled-action': 'errDisabled',
+      }[res.reason];
+      const msg = key ? t(key) : t('errOther', { reason: res.reason });
       this.ui.announce(msg);
       this.input.shake();
       return;
@@ -306,10 +312,10 @@ class App {
   }
 
   undo() {
-    if (!this.session || !this.session.canUndo()) { this.ui.announce('Nothing to undo.'); return; }
+    if (!this.session || !this.session.canUndo()) { this.ui.announce(t('nothingToUndo')); return; }
     this.session.undo();
     this.prevTreat = { x: this.session.state.treat.x, y: this.session.state.treat.y };
-    this.ui.announce('Undone.');
+    this.ui.announce(t('undone'));
     this.ui.updateHud(this.session, this.level);
     this.refreshBoard();
   }
@@ -317,11 +323,11 @@ class App {
   hint() {
     if (!this.session || this.phase !== 'active') return;
     const h = this.session.hint();
-    if (!h) { this.ui.announce('No hint available right now.'); return; }
+    if (!h) { this.ui.announce(t('noHint')); return; }
     const kind = h.action.type === 'cut' ? 'rope' : h.action.type;
     this.renderer.setHighlight(kind, h.action.id, 'hint');
-    this.ui.announce('Hint: try ' + (h.action.type === 'cut' ? 'snipping ' + h.action.id
-      : h.action.type + ' on ' + h.action.id) + (h.authored ? '' : ' (no authored hint; best guess)'));
+    const hintKey = h.action.type === 'cut' ? 'hintSnip' : h.action.type === 'pop' ? 'hintPop' : 'hintFan';
+    this.ui.announce(t(hintKey, { id: h.action.id }) + (h.authored ? '' : t('hintGuess')));
   }
 
   restart() {
@@ -339,7 +345,7 @@ class App {
     if (this.phase === 'active') {
       this.phase = 'paused';
       this.ui.showPause();
-      this.ui.announce('Paused.');
+      this.ui.announce(t('announcePaused'));
     } else if (this.phase === 'paused') {
       this.resume();
     }
@@ -349,7 +355,7 @@ class App {
     if (this.phase !== 'paused') return;
     this.phase = 'active';
     this.ui.closeScreen();
-    this.ui.announce('Resumed.');
+    this.ui.announce(t('announceResumed'));
   }
 
   /** Skip/fast-forward: settle instantly to the deterministic end state. */
@@ -425,10 +431,10 @@ class App {
     let nextLabel = null;
     if (won && this.mode === 'journey') {
       const idx = LEVELS.findIndex((l) => l.id === this.level.id);
-      if (idx >= 0 && idx + 1 < LEVELS.length) nextLabel = 'Next stage';
+      if (idx >= 0 && idx + 1 < LEVELS.length) nextLabel = 'nextStage';
     } else if (this.mode === 'learn') {
       const idx = TUTORIALS.findIndex((t) => t.id === this.level.id);
-      if (idx >= 0 && idx + 1 < TUTORIALS.length) nextLabel = 'Next lesson';
+      if (idx >= 0 && idx + 1 < TUTORIALS.length) nextLabel = 'nextLesson';
     }
     this._nextTarget = null;
     if (nextLabel) {
@@ -503,7 +509,7 @@ async function boot() {
     }),
     showHelp: () => {
       const k = keyLabels(app.bindings);
-      ui.showHelp(Object.assign({}, k, { confirm: k.confirm + ' / gamepad A' }));
+      ui.showHelp(Object.assign({}, k, { confirm: t('gamepadA', { key: k.confirm }) }));
     },
     canSignIn: () => canSignIn(),
     canInvite: () => !!inviteLink(),
@@ -511,8 +517,8 @@ async function boot() {
     invite: async () => {
       const url = inviteLink();
       if (!url) return;
-      try { await navigator.clipboard.writeText(url); ui.toast(shText('copied')); }
-      catch (e) { ui.toast(shText('copyFail', { url })); }
+      try { await navigator.clipboard.writeText(url); ui.toast(sh('copied')); }
+      catch (e) { ui.toast(sh('copyFail', { url })); }
     },
     showScores: (b) => app.showScores(b),
     saveSettings: () => app.saveSettings(),
@@ -534,7 +540,7 @@ async function boot() {
   });
 
   const renderer = new Renderer(ui.canvas, {
-    onContextLost: () => ui.glMessage('Graphics context lost — rebuilding…'),
+    onContextLost: () => ui.glMessage(t('contextLost')),
     onContextRestored: () => {
       ui.glMessage(null);
       // Three re-uploads GPU resources automatically; rebuild scene content.
@@ -544,7 +550,7 @@ async function boot() {
     },
   });
   if (!renderer.ok) {
-    ui.glMessage('WebGL is unavailable in this browser. Menus still work; the action list below can play each round.');
+    ui.glMessage(t('webglBoot'));
   }
 
   const audio = new AudioEngine(loadSettings());
@@ -577,10 +583,35 @@ async function boot() {
   // query params are a local-dev fallback) and start the refresh cycle.
   initPlatform();
   setSyncListener((s) => ui.setSyncStatus(s));
+  // Another device saved first: reload the cloud doc, merge it into this
+  // device's progress (keeping its cosmetics and any round in play) and save again.
+  onSaveConflict(async () => {
+    const remote = await loadCloudSave();
+    if (remote && remote.progress && typeof remote.progress === 'object') {
+      Object.assign(app.progress, mergeProgress(remote.progress, app.progress, 'local'));
+      saveProgress(app.progress);
+      ui.setTotalStars(app.progress.totalStars);
+      if (app.phase === 'title') app.goTitle();
+    }
+    app.saveProgress();
+  });
+
+  // Language changes relabel the shell and the current screen in place; the
+  // round keeps running (the HUD re-renders every frame).
+  onLanguage(() => {
+    ui.relabel();
+    if (app.session) {
+      ui.updateHud(app.session, app.level);
+      app.refreshBoard();
+      if (app.level && app.level.tutorial) app.showCoachStep();
+    }
+    if (!renderer.ok) ui.glMessage(t('webglBoot'));
+  });
+
   onAuthChange((a) => {
     if (a.signedIn) return;
     ui.setPlayerName(null);
-    ui.toast(shText('signedOut'));
+    ui.toast(sh('signedOut'));
     if (app.phase === 'title') app.goTitle(); // sign-in button returns
   });
 
@@ -592,11 +623,15 @@ async function boot() {
     ui.setPlayerName(await loadNickname());
     const remote = await loadCloudSave();
     if (remote && remote.progress && typeof remote.progress === 'object') {
-      // Remote wins conflicts; localStorage stays a cache of the adopted doc.
-      app.progress = Object.assign({}, app.progress, remote.progress);
+      // Merge the cloud doc with this device's progress (best of both; the
+      // cloud's cosmetics choice); localStorage stays a cache of the result.
+      const before = JSON.stringify(remote.progress);
+      app.progress = mergeProgress(remote.progress, app.progress, 'remote');
       saveProgress(app.progress);
+      // Local progress the cloud lacked: write the merged doc back (conditional on the loaded version).
+      if (JSON.stringify(app.progress) !== before) app.saveProgress();
       ui.setTotalStars(app.progress.totalStars);
-      ui.toast('Progress synced from your StarHermit account.');
+      ui.toast(t('progressSynced'));
     }
     // Platform-stored preferences win over local ones.
     const prefs = await loadPlatformSettings(app.settings);
@@ -643,7 +678,7 @@ async function boot() {
 if (typeof document !== 'undefined' && typeof window !== 'undefined') {
   boot().catch((e) => {
     const root = document.getElementById('app');
-    if (root) root.textContent = 'Tether Treat failed to start: ' + (e && e.message ? e.message : e);
+    if (root) root.textContent = t('failedToStart', { error: e && e.message ? e.message : e });
     console.error(e);
   });
 }

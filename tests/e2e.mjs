@@ -35,6 +35,7 @@ import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { launchToken, stubStarHermit } from './starhermit-e2e.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SHOT = (stage, vp) => `/tmp/tether-treat-e2e-${stage}-${vp}.png`;
@@ -144,19 +145,19 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
 
     // Settings: open, toggle Reduced motion (also shortens the countdown),
     // then Back to title — real visible controls.
-    await page.click('button:has-text("Settings")');
+    await page.click('#btn-settings');
     await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Settings")', { timeout: 5000 });
-    const rm = page.locator('label:has-text("Reduced motion") input[type="checkbox"]');
+    const rm = page.locator('label:has([data-label="reducedMotion"]) input[type="checkbox"]');
     if (!(await rm.isChecked())) await rm.check();
     const reducedNow = await rm.isChecked();
     if (!reducedNow) throw new Error('Reduced motion toggle did not enable');
     await page.screenshot({ path: SHOT('settings', name) });
-    await page.click('button:has-text("← Back")');
+    await page.click('#btn-settings-back');
     await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Tether Treat")', { timeout: 5000 });
     ok(`${name}: Settings open → Reduced motion on → Back to title`);
 
     // Graphics section: Low → High, one override, applied live and persisted.
-    await page.click('button:has-text("Settings")');
+    await page.click('#btn-settings');
     await page.locator('#gfx-section').scrollIntoViewIfNeeded();
     const detectedLabel = (await page.locator('#gfx-preset option[value="auto"]').textContent()).trim();
     if (!/Auto \(detected: Low\)/.test(detectedLabel)) throw new Error(`software GPU should auto-detect Low, got "${detectedLabel}"`);
@@ -176,7 +177,7 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
     await page.screenshot({ path: SHOT('graphics', name) });
     await page.reload({ waitUntil: 'load' });
     await page.waitForSelector('.tt-card-play', { timeout: 15000 });
-    await page.click('button:has-text("Settings")');
+    await page.click('#btn-settings');
     const persisted = await page.evaluate(() => ({
       preset: document.getElementById('gfx-preset').value,
       bloom: document.getElementById('gfx-bloom').value,
@@ -191,7 +192,7 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
     const cleared = await page.locator('#gfx-bloom').inputValue();
     if (cleared !== 'preset') throw new Error('choosing a preset should clear overrides');
     await page.waitForFunction((p) => document.body.dataset.gfxPreset === p, playPreset, { timeout: 5000 });
-    await page.click('button:has-text("← Back")');
+    await page.click('#btn-settings-back');
     await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Tether Treat")', { timeout: 5000 });
     ok(`${name}: Graphics Low → High, bloom override, persisted across reload; playing at ${playPreset}`);
 
@@ -207,32 +208,32 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
     if (full) {
       // Pause / resume via the visible buttons (safe here: treat hangs at
       // rest, so pausing before the snip cannot drift it).
-      await page.click('button:has-text("Pause (Esc)")');
+      await page.locator('.tt-actionbar button', { hasText: /^Pause \(Esc\)$/ }).click();
       await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Paused")', { timeout: 5000 });
       await page.screenshot({ path: SHOT('pause', name) });
       // Settings is reachable from the pause menu and Back returns to it.
-      await page.click('.tt-screens button:has-text("Settings")');
+      await page.click('#btn-pause-settings');
       await page.waitForSelector('#gfx-section', { timeout: 5000 });
-      await page.click('button:has-text("← Back")');
+      await page.click('#btn-settings-back');
       await page.waitForSelector('.tt-screens:not([hidden]) .tt-panel h1:has-text("Paused")', { timeout: 5000 });
       if (!(await page.locator('.tt-fps').isVisible())) throw new Error('frame-rate readout should be visible');
-      await page.click('button:has-text("Resume (Esc)")');
+      await page.click('#btn-resume');
       await waitBoardResumed(page);
       ok(`${name}: Pause and Resume work`);
 
       // Hint exercises the real Hint button (highlights the rope; no state change).
-      await page.click('button:has-text("Hint (H)")');
+      await page.locator('.tt-actionbar button', { hasText: /^Hint \(H\)$/ }).click();
       await page.waitForTimeout(150);
       ok(`${name}: Hint button exercised`);
 
       // Undo is correctly disabled with no legal undo history.
-      const undoDisabled = await page.locator('button:has-text("Undo (U)")').isDisabled();
+      const undoDisabled = await page.locator('.tt-actionbar button', { hasText: /^Undo \(U\)$/ }).isDisabled();
       if (!undoDisabled) throw new Error('Undo should be disabled on a fresh board');
       ok(`${name}: Undo is disabled on a fresh board`);
 
       // Restart the round through the visible button, then wait for the board
       // to be active again before the real snip.
-      await page.click('button:has-text("Restart (R)")');
+      await page.locator('.tt-actionbar button', { hasText: /^Restart \(R\)$/ }).click();
       await waitActive(page);
       ok(`${name}: Restart returns to an active board`);
     }
@@ -272,6 +273,75 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
   console.log(`ok - ${name}: no page errors`);
 }
 
+// ---------- language + report pass (signed in, stubbed StarHermit API) ----------
+// Automatic follows the account's preferred language (fr-CA); choosing another
+// language in Settings relabels it in place and PUTs ui.language; a German
+// round shows German HUD/mirror text; switching back to Automatic from the
+// pause menu re-renders the round's text without restarting it; Report a
+// problem posts to /reports.
+async function languagePass(browser, name, ctxOpts) {
+  const errors = [];
+  const context = await browser.newContext(ctxOpts);
+  const page = await context.newPage();
+  page.on('pageerror', (e) => errors.push(`pageerror: ${e.message}`));
+  page.on('console', (m) => {
+    if ((m.type() !== 'error' && m.type() !== 'warning') || browserNoise.test(m.text())) return;
+    errors.push(`console: ${m.text()}`);
+  });
+  try {
+    const calls = await stubStarHermit(page, { preferredLanguage: 'fr-CA' });
+    await page.goto('about:blank');
+    await page.goto(BASE + '/index.html#game_token=' + launchToken(), { waitUntil: 'load' });
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA', null, { timeout: 15000 });
+    await page.waitForFunction(() => /Jouer le parcours|Continuer le parcours/.test(document.querySelector('.tt-card-play')?.textContent || ''));
+    await page.click('#btn-settings');
+    const choice = page.locator('[data-game-language="choice"]');
+    await choice.scrollIntoViewIfNeeded();
+    const auto = await choice.locator('option').first().textContent();
+    if (auto !== 'Automatique — Français (Canada)') throw new Error(`Automatic label not resolved: "${auto}"`);
+    await choice.selectOption('it-IT');
+    await page.waitForFunction(() => document.documentElement.lang === 'it-IT');
+    await page.waitForFunction(() => /Salvato/.test(document.querySelector('[data-game-language="status"]').textContent));
+    if (calls.settings['ui.language']?.choice !== 'it-IT') throw new Error('ui.language not saved: ' + JSON.stringify(calls.settings));
+    if ((await page.textContent('.tt-screens .tt-panel h1')).trim() !== 'Impostazioni') throw new Error('settings title not relabelled');
+    if ((await page.textContent('[data-label="muteAll"]')).trim() !== 'Disattiva tutto l’audio') throw new Error('settings labels not relabelled');
+    if (!(await choice.isVisible())) throw new Error('language selector lost during relabel');
+    await page.locator('[data-game-report="title"]').scrollIntoViewIfNeeded();
+    await page.fill('[data-game-report="title"]', 'Test report');
+    await page.click('[data-game-report="send"]');
+    await page.waitForFunction(() => /Grazie/.test(document.querySelector('[data-game-report="status"]').textContent));
+    if (!calls.reports?.[0] || calls.reports[0].kind !== 'bug') throw new Error('report not posted');
+    ok(`${name}: Automatic resolved fr-CA from the account; Italian applied live, saved to ui.language; report posted`);
+
+    await choice.selectOption('de-DE');
+    await page.waitForFunction(() => document.documentElement.lang === 'de-DE');
+    await page.click('#btn-settings-back');
+    await page.click('.tt-card-play');
+    await page.waitForFunction(() => /Ziel:/.test(document.querySelector('.tt-root [role="status"]')?.textContent || ''), null, { timeout: 15000 });
+    const obj = (await page.textContent('.tt-hud-objective')).trim();
+    if (!/^Bring das Leckerli zu Morsel/.test(obj)) throw new Error(`HUD not German: "${obj}"`);
+    if (!(await page.locator('#board-mirror button', { hasText: /kappen$/ }).count())) throw new Error('mirror actions not German');
+    await page.screenshot({ path: SHOT('language-de', name) });
+    await page.locator('.tt-actionbar button', { hasText: /^Pause \(Esc\)$/ }).click();
+    await page.click('#btn-pause-settings');
+    await choice.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: SHOT('language-de-settings', name) });
+    await choice.selectOption('auto');
+    await page.waitForFunction(() => document.documentElement.lang === 'fr-CA');
+    if ((await page.textContent('.tt-screens .tt-panel h1')).trim() !== 'Paramètres') throw new Error('settings not relabelled to French');
+    await page.click('#btn-settings-back');
+    if ((await page.textContent('.tt-screens .tt-panel h1')).trim() !== 'En pause') throw new Error('pause menu not French');
+    await page.click('#btn-resume');
+    await page.waitForFunction(() => document.querySelector('.tt-screens').hidden === true);
+    if (!/^Apportez la friandise à Morsel/.test(await page.textContent('.tt-hud-objective'))) throw new Error('HUD not re-rendered in French');
+    if (!(await page.locator('#board-mirror button', { hasText: /^Couper / }).count())) throw new Error('mirror not re-rendered in French');
+    ok(`${name}: German round labels, then Automatic (fr-CA) re-rendered HUD, mirror and pause menu mid-round`);
+  } finally {
+    await context.close();
+  }
+  if (errors.length) throw new Error(`${name} language pass had page errors:\n  ${errors.join('\n  ')}`);
+}
+
 // ---------- main ----------
 let browser = null;
 try {
@@ -283,6 +353,8 @@ try {
   await runPass(browser, 'desktop', { viewport: { width: 1280, height: 800 } }, { full: true, playPreset: 'ultra' });
   await runPass(browser, 'mobile',
     { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true }, { full: false, playPreset: 'low' });
+  await languagePass(browser, 'desktop-language', { viewport: { width: 1280, height: 800 } });
+  await languagePass(browser, 'mobile-language', { viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });
   console.log('\nE2E PASS — tether-treat, desktop + mobile, no page errors');
 } catch (e) {
   failures++;

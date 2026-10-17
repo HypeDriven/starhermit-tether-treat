@@ -125,3 +125,42 @@ export function recordLocalScore(progress, entry) {
   progress.board = (progress.board || []).concat([entry])
     .sort((a, b) => b.total - a.total).slice(0, 50);
 }
+
+/**
+ * Progress from two devices: per stage completed if either side completed it,
+ * the most stars and the best score; lessons, achievements and daily days
+ * united; the local score board merged (top 50). `prefer` ('remote' | 'local')
+ * decides whose cosmetics and Continue target win. Either side may be null.
+ */
+export function mergeProgress(remote, local, prefer = 'remote') {
+  const a = Object.assign({}, DEFAULT_PROGRESS, remote || {});
+  const b = Object.assign({}, DEFAULT_PROGRESS, local || {});
+  const [win, lose] = prefer === 'local' ? [b, a] : [a, b];
+  const levels = Object.assign({}, a.levels);
+  for (const [id, r] of Object.entries(b.levels || {})) {
+    const p = levels[id];
+    levels[id] = !p ? r : {
+      completed: !!(p.completed || r.completed),
+      stars: Math.max(p.stars || 0, r.stars || 0),
+      bestScore: Math.max(p.bestScore || 0, r.bestScore || 0),
+    };
+  }
+  const union = (x, y) => Array.from(new Set([].concat(x || [], y || [])));
+  const seen = new Set();
+  const board = [].concat(a.board || [], b.board || []).filter((e) => {
+    const k = JSON.stringify([e.total, e.levelId, e.at, e.delivered]);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  }).sort((x, y) => y.total - x.total).slice(0, 50);
+  return Object.assign({}, lose, win, {
+    levels,
+    tutorialsDone: union(a.tutorialsDone, b.tutorialsDone),
+    achievements: union(a.achievements, b.achievements),
+    dailyDays: union(a.dailyDays, b.dailyDays),
+    cosmetics: Object.assign({}, lose.cosmetics, win.cosmetics),
+    lastLevel: win.lastLevel || lose.lastLevel,
+    board,
+    totalStars: Object.values(levels).reduce((n, l) => n + (l.stars || 0), 0),
+  });
+}

@@ -29,6 +29,7 @@ let nickname = null;     // cached display name
 let syncCb = null;
 let syncState = 'offline';
 let authCb = null;
+let conflictCb = null;
 let flushHooks = false;
 let pushedPrefs = {};
 let prefTimer = null;
@@ -46,6 +47,9 @@ export function initPlatform() {
       if (!a.signedIn) { nickname = null; setSync('offline'); }
       if (authCb) authCb(a);
     });
+    // A write lost to a newer save from another device (conditional PUT → 412):
+    // writes stay blocked until the game reloads, merges and saves again.
+    sh.on('saveconflict', () => { if (conflictCb) conflictCb(); });
   }
   setSync(isHosted() ? 'synced' : 'offline');
   if (isHosted()) installFlushHooks();
@@ -59,6 +63,8 @@ export function signIn() { const sh = SH(); return !!(sh && sh.signIn()); }
 export function inviteLink() { return isHosted() ? SH().inviteLink() : null; }
 /** cb({signedIn}) on SDK sign-out (renewal refused). */
 export function onAuthChange(cb) { authCb = cb; }
+/** cb() when a cloud save lost to another device's newer save (merge, then save again). */
+export function onSaveConflict(cb) { conflictCb = cb; }
 
 /**
  * UTC date key ('YYYY-MM-DD') for the daily level, from the local clock.

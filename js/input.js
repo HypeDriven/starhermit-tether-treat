@@ -9,6 +9,7 @@
 // Y hint, Start pause.
 
 import { s2w } from './physics.js';
+import { t } from './i18n.js';
 
 const TAP_MAX_DIST = 12;   // px
 const TAP_MAX_TIME = 400;  // ms
@@ -131,7 +132,7 @@ export class Input {
     }
     // Explain why nothing happened.
     if (s.gatedByTutorial({ type, id: hit.id })) {
-      this.ctx.ui.showTooltip('Not yet — follow the lesson step.', e.clientX, e.clientY - 30);
+      this.ctx.ui.showTooltip(t('errNotYet'), e.clientX, e.clientY - 30);
       this.ctx.audio.errorBuzz();
       return;
     }
@@ -145,17 +146,17 @@ export class Input {
 
   _invalidReason(type, id) {
     const st = this.session.state;
-    if (st.disabledActions.includes(type)) return 'That action is disabled in this challenge.';
+    if (st.disabledActions.includes(type)) return t('errDisabled');
     if (type === 'cut') {
       const r = st.ropes.find((x) => x.id === id);
-      if (r && r.cut) return 'Already cut.';
+      if (r && r.cut) return t('errAlreadyCut');
     }
     if (type === 'pop') {
       const b = st.bubbles.find((x) => x.id === id);
-      if (b && b.state === 2) return 'Already popped.';
-      if (b && b.state === 0) return 'Nothing to pop yet.';
+      if (b && b.state === 2) return t('errAlreadyPopped');
+      if (b && b.state === 0) return t('errNothingToPop');
     }
-    if (st.moveLimit && st.actionsUsed >= st.moveLimit) return 'No moves left.';
+    if (st.moveLimit && st.actionsUsed >= st.moveLimit) return t('errMoveLimit');
     return null;
   }
 
@@ -167,7 +168,7 @@ export class Input {
     const legal = s.legalActions().find((x) => x.type === 'cut' && x.id === id);
     if (legal) this.ctx.onAction('cut', id);
     else if (s.gatedByTutorial({ type: 'cut', id })) {
-      this.ctx.ui.showTooltip('Not yet — follow the lesson step.', e.clientX, e.clientY - 30);
+      this.ctx.ui.showTooltip(t('errNotYet'), e.clientX, e.clientY - 30);
     }
   }
 

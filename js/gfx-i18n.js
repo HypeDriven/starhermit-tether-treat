@@ -3,6 +3,7 @@
 
 const EN = {
   graphics: 'Graphics',
+  level: 'Level {n}',
   quality: 'Quality',
   auto: 'Auto (detected: {tier})',
   fromPreset: 'From preset ({tier})',
@@ -34,6 +35,7 @@ const US = {
 
 const ES = {
   graphics: 'Gráficos',
+  level: 'Nivel {n}',
   quality: 'Calidad',
   auto: 'Automática (detectada: {tier})',
   fromPreset: 'Según el ajuste ({tier})',
@@ -61,6 +63,7 @@ const ES_419 = { ...ES, renderScale: 'Escala de render' };
 
 const DE = {
   graphics: 'Grafik',
+  level: 'Stufe {n}',
   quality: 'Qualität',
   auto: 'Automatisch (erkannt: {tier})',
   fromPreset: 'Wie Voreinstellung ({tier})',
@@ -86,6 +89,7 @@ const DE = {
 
 const FR = {
   graphics: 'Graphismes',
+  level: 'Niveau {n}',
   quality: 'Qualité',
   auto: 'Automatique (détectée : {tier})',
   fromPreset: 'Selon le préréglage ({tier})',
@@ -113,6 +117,7 @@ const FR_CA = { ...FR, showFps: 'Afficher le nombre d’images par seconde' };
 
 const PT = {
   graphics: 'Gráficos',
+  level: 'Nível {n}',
   quality: 'Qualidade',
   auto: 'Automática (detectada: {tier})',
   fromPreset: 'Conforme a predefinição ({tier})',
@@ -138,6 +143,7 @@ const PT = {
 
 const IT = {
   graphics: 'Grafica',
+  level: 'Livello {n}',
   quality: 'Qualità',
   auto: 'Automatica (rilevata: {tier})',
   fromPreset: 'Dal preset ({tier})',

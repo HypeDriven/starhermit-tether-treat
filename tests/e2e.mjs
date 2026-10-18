@@ -172,6 +172,8 @@ async function runPass(browser, name, ctxOpts, { full, playPreset }) {
       const s = document.getElementById('gfx-summary');
       return s && s.dataset.preset === 'high' && /shadows/.test(s.textContent) && !/bloom/.test(s.textContent);
     }, null, { timeout: 5000 });
+    const gfxSummary = await page.textContent('#gfx-summary');
+    if (!/ · Level 0 · /.test(gfxSummary)) throw new Error(`summary lacks the hardware level: ${gfxSummary}`);
     await page.locator('#gfx-fps').check();
     await page.locator('#gfx-summary').scrollIntoViewIfNeeded();
     await page.screenshot({ path: SHOT('graphics', name) });

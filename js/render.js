@@ -12,7 +12,35 @@
 import * as THREE from '../vendor/three.module.js';
 import { s2w, sliderPosition } from './physics.js';
 import { SUB } from './rules.js';
-import { resolve, detectPreset, capForTouch, describe, SHADOW_MAP, PARTICLES } from './gfx.js';
+import { resolve, detectLevel, presetForLevel, describe, SHADOW_MAP, BUDGETS } from './gfx.js';
+
+// The preset budget's asset variants (gfx.js BUDGETS), set by Renderer.setGraphics before a level is built:
+// lit-surface shader class, tessellation share of the authored segment counts and procedural texture scale.
+const look = { material: BUDGETS.low.material, segments: BUDGETS.low.segments, texture: BUDGETS.low.texture };
+/** Tessellation at the budget's share of an authored segment count. */
+const seg = (n, min = 4) => Math.max(min, Math.round(n * look.segments));
+// Lit materials: physMat asks for the clear-coated/sheen look (Physical on High/Ultra, Standard on Balanced,
+// Lambert on Low), stdMat for plain PBR (Standard, Lambert on Low). Parameters a class lacks are dropped.
+const LIT = { lambert: THREE.MeshLambertMaterial, standard: THREE.MeshStandardMaterial, physical: THREE.MeshPhysicalMaterial };
+function litMaterial(kind, params) {
+  const m = new LIT[kind]();
+  for (const [k, v] of Object.entries(params)) {
+    if (!(k in m)) continue;
+    if (m[k] && m[k].isColor) m[k].set(v); else m[k] = v;
+  }
+  return m;
+}
+const physMat = (params) => litMaterial(look.material, params);
+const stdMat = (params) => litMaterial(look.material === 'lambert' ? 'lambert' : 'standard', params);
+
+// Run a post pass at a fraction of the frame: EffectComposer.addPass/setSize hand every pass the full
+// frame size, so the pass's own setSize applies the budget's scale (half-res bloom/GTAO below Ultra).
+function atScale(pass, k) {
+  if (!(k > 0 && k < 1)) return pass;
+  const setSize = pass.setSize.bind(pass);
+  pass.setSize = (w, h) => setSize(Math.max(1, Math.round(w * k)), Math.max(1, Math.round(h * k)));
+  return pass;
+}
 
 // Colour grade + vignette, applied in display space after the OutputPass.
 // Backing-store pixel budget for the large-screen (UIScale) boost: about a
@@ -52,10 +80,15 @@ function texRng(seed) {
   };
 }
 
-function canvasTex(w, h, draw, { repeat = null, srgb = true } = {}) {
+// Surface textures are drawn in their authored w×h space at the budget's texture scale (`fixed` keeps the
+// authored size, e.g. the particle dot).
+function canvasTex(w, h, draw, { repeat = null, srgb = true, fixed = false } = {}) {
   const cv = document.createElement('canvas');
-  cv.width = w; cv.height = h;
-  draw(cv.getContext('2d'), w, h);
+  const k = fixed ? 1 : look.texture;
+  cv.width = Math.max(1, Math.round(w * k)); cv.height = Math.max(1, Math.round(h * k));
+  const ctx = cv.getContext('2d');
+  ctx.scale(cv.width / w, cv.height / h);
+  draw(ctx, w, h);
   const tex = new THREE.CanvasTexture(cv);
   if (srgb) tex.colorSpace = THREE.SRGBColorSpace;
   if (repeat) {
@@ -140,7 +173,7 @@ function dotTexture() {
     g.addColorStop(0.45, 'rgba(255,255,255,0.8)');
     g.addColorStop(1, 'rgba(255,255,255,0)');
     ctx.fillStyle = g; ctx.fillRect(0, 0, 32, 32);
-  });
+  }, { fixed: true });
 }
 
 function starShape(r = 0.55, points = 5) {
@@ -164,24 +197,24 @@ function buildTreatMesh(theme, cosmetic, detailed) {
     pts.push(new THREE.Vector2(Math.sin(t * Math.PI) * 0.5, (t - 0.5) * 0.9));
   }
   const bodyMat = detailed
-    ? new THREE.MeshPhysicalMaterial({
+    ? physMat({
       color: theme.treat, roughness: 0.3, metalness: 0, clearcoat: 1, clearcoatRoughness: 0.08,
       map: bandTexture(8, '#ffffff', '#d6d6d6'),
     })
-    : new THREE.MeshStandardMaterial({ color: theme.treat, roughness: 0.35, metalness: 0.05 });
+    : stdMat({ color: theme.treat, roughness: 0.35, metalness: 0.05 });
   if (detailed) bodyMat.map.repeat.set(2, 1);
-  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, detailed ? 40 : 24), bodyMat);
+  const body = new THREE.Mesh(new THREE.LatheGeometry(pts, seg(detailed ? 40 : 24)), bodyMat);
   group.add(body);
   const band = new THREE.Mesh(
-    new THREE.TorusGeometry(0.42, 0.09, detailed ? 16 : 10, detailed ? 40 : 28),
+    new THREE.TorusGeometry(0.42, 0.09, seg(detailed ? 16 : 10), seg(detailed ? 40 : 28)),
     detailed
-      ? new THREE.MeshPhysicalMaterial({ color: theme.accent2, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 })
-      : new THREE.MeshStandardMaterial({ color: theme.accent2, roughness: 0.4 }));
+      ? physMat({ color: theme.accent2, roughness: 0.3, clearcoat: 1, clearcoatRoughness: 0.1 })
+      : stdMat({ color: theme.accent2, roughness: 0.4 }));
   band.rotation.x = Math.PI / 2;
   group.add(band);
   if (cosmetic === 'sprinkle' || cosmetic === 'astro') {
     const sprinkleGeo = detailed ? new THREE.CapsuleGeometry(0.03, 0.12, 2, 6) : new THREE.BoxGeometry(0.06, 0.06, 0.16);
-    const sprinkleMat = new THREE.MeshStandardMaterial({ color: theme.star, roughness: 0.5 });
+    const sprinkleMat = stdMat({ color: theme.star, roughness: 0.5 });
     for (let i = 0; i < 8; i++) {
       const s = new THREE.Mesh(sprinkleGeo, sprinkleMat);
       const a = (i / 8) * Math.PI * 2;
@@ -205,20 +238,20 @@ function buildTreatMesh(theme, cosmetic, detailed) {
 function buildMorsel(theme, r, detailed) {
   const g = new THREE.Group();
   const body = new THREE.Mesh(
-    new THREE.SphereGeometry(0.75, detailed ? 40 : 24, detailed ? 30 : 18),
+    new THREE.SphereGeometry(0.75, seg(detailed ? 40 : 24), seg(detailed ? 30 : 18)),
     detailed
-      ? new THREE.MeshPhysicalMaterial({
+      ? physMat({
         color: theme.accent, roughness: 0.55, sheen: 1, sheenRoughness: 0.4,
         sheenColor: new THREE.Color(mixHex(theme.accent, '#ffffff', 0.6)), clearcoat: 0.25,
       })
-      : new THREE.MeshStandardMaterial({ color: theme.accent, roughness: 0.6 }));
+      : stdMat({ color: theme.accent, roughness: 0.6 }));
   body.scale.y = 0.85;
   body.position.y = 0.55;
   g.add(body);
-  const eyeGeo = new THREE.SphereGeometry(0.11, detailed ? 16 : 10, detailed ? 12 : 8);
+  const eyeGeo = new THREE.SphereGeometry(0.11, seg(detailed ? 16 : 10), seg(detailed ? 12 : 8));
   const eyeMat = detailed
-    ? new THREE.MeshPhysicalMaterial({ color: '#1a1230', roughness: 0.15, clearcoat: 1 })
-    : new THREE.MeshStandardMaterial({ color: '#1a1230' });
+    ? physMat({ color: '#1a1230', roughness: 0.15, clearcoat: 1 })
+    : stdMat({ color: '#1a1230' });
   const eyes = [];
   for (const dx of [-0.24, 0.24]) {
     const eye = new THREE.Mesh(eyeGeo, eyeMat);
@@ -235,7 +268,7 @@ function buildMorsel(theme, r, detailed) {
   g.userData.eyes = eyes;
   const mouth = new THREE.Mesh(
     new THREE.TorusGeometry(0.28, 0.09, 10, 24),
-    new THREE.MeshStandardMaterial({ color: '#5e1030', roughness: 0.7 }));
+    stdMat({ color: '#5e1030', roughness: 0.7 }));
   mouth.position.set(0, 0.42, 0.64);
   g.add(mouth);
   // Capture radius ring on the floor — communicates the goal zone.
@@ -257,7 +290,7 @@ export class Renderer {
   constructor(canvas, opts = {}) {
     this.canvas = canvas;
     this.opts = opts;
-    this.tier = { particles: PARTICLES.low.pool, motes: 0 };
+    this.tier = { particles: BUDGETS.low.pool.low, motes: 0 };
     this.time = 0;
     this.disposed = false;
     this.interactives = [];  // hit proxies: {mesh, kind:'rope'|'bubble'|'fan', id}
@@ -293,8 +326,16 @@ export class Renderer {
     renderer.outputColorSpace = THREE.SRGBColorSpace;
     renderer.shadowMap.type = THREE.PCFSoftShadowMap;
     this.gpu = Renderer.gpuName(renderer);
+    // StarHermit hardware level (js/gpu-level.js): renderer string + device facts (phone/tablet, cores,
+    // memory, screen); phones and tablets are capped at level 9 (Balanced).
     const touch = typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches;
-    this.detected = capForTouch(detectPreset(this.gpu), touch);
+    let sys = { mobile: touch };
+    try {
+      const G = globalThis.StarHermitGpu;
+      if (G) { const d = G.detectSystem(); sys = { ...d, mobile: !!(touch || d.mobile), gpu: undefined }; }
+    } catch (e) { /* defaults */ }
+    this.gpuLevel = detectLevel(this.gpu, sys);
+    this.detected = presetForLevel(this.gpuLevel);
     this.scene = new THREE.Scene();
     this.camera = new THREE.PerspectiveCamera(42, 1, 0.1, 200);
     this.baseCamPos = new THREE.Vector3(0, 6, 30);
@@ -350,9 +391,12 @@ export class Renderer {
     if (json === this._gfxJson) return;
     this._gfxJson = json;
     const prev = this.q;
-    const g = resolve(saved, this.detected);
+    const g = resolve(saved, this.detected, this.gpuLevel);
     this.q = g;
-    this.tier = { particles: PARTICLES[g.particles].pool, motes: PARTICLES[g.particles].motes };
+    const b = g.budget;
+    this.tier = { particles: b.pool[g.particles], motes: g.particles === 'high' ? b.motes : 0 };
+    const lookChanged = look.material !== b.material || look.segments !== b.segments || look.texture !== b.texture;
+    Object.assign(look, { material: b.material, segments: b.segments, texture: b.texture });
     const size = SHADOW_MAP[g.shadows];
     this.renderer.shadowMap.enabled = size > 0;
     if (this.keyLight) this._applyShadow();
@@ -371,7 +415,8 @@ export class Renderer {
       });
     }
     const rebuild = prev && this.levelGroup && this._lastState &&
-      (prev.detail !== g.detail || prev.background !== g.background || prev.particles !== g.particles);
+      (prev.detail !== g.detail || prev.background !== g.background || prev.particles !== g.particles ||
+        lookChanged || prev.budget.pool !== b.pool || prev.budget.motes !== b.motes);
     if (rebuild) {
       this.buildLevel(this._lastState, this.theme, this.cosmetics);
       if (this._lastActions) this.setLegalTargets(this._lastActions, this._lastState);
@@ -420,6 +465,7 @@ export class Renderer {
     const px = [Math.round(w * ratio), Math.round(h * ratio)];
     return {
       gpu: this.gpu || 'unknown GPU',
+      level: this.gpuLevel,
       detected: this.detected,
       resolved: this.q,
       pixels: px[0] > 0 ? px : null,
@@ -459,7 +505,7 @@ export class Renderer {
   _postKey(w, h) {
     const g = this.q;
     if (!g.post || !this.mods || this.postFailed) return 'none';
-    return [g.ao, g.bloom, g.grade, g.antialias, w, h, this.pixelRatio].join('|');
+    return [g.ao, g.bloom, g.grade, g.antialias, w, h, this.pixelRatio, g.budget.bloomRes, g.budget.aoRes].join('|');
   }
 
   _buildPost(w, h) {
@@ -482,7 +528,7 @@ export class Renderer {
       composer.setSize(w, h);
       composer.addPass(new M.RenderPass(this.scene, this.camera));
       if (g.ao !== 'off') {
-        const ao = new M.GTAOPass(this.scene, this.camera, pw, ph);
+        const ao = atScale(new M.GTAOPass(this.scene, this.camera, pw, ph), g.budget.aoRes);
         ao.output = M.GTAOPass.OUTPUT.Default;
         ao.blendIntensity = 0.75;
         ao.updateGtaoMaterial({ radius: 0.9, distanceExponent: 1.2, thickness: 1.2, scale: 1.0, samples: g.ao === 'high' ? 16 : 8 });
@@ -499,7 +545,7 @@ export class Renderer {
       }
       if (g.bloom === 'on') {
         // High threshold: only glowing stars, the goal and hot highlights bloom.
-        composer.addPass(new M.UnrealBloomPass(new THREE.Vector2(w, h), 0.45, 0.35, 0.92));
+        composer.addPass(atScale(new M.UnrealBloomPass(new THREE.Vector2(w, h), 0.45, 0.35, 0.92), g.budget.bloomRes));
       }
       composer.addPass(new M.OutputPass());
       if (g.grade === 'on') composer.addPass(new M.ShaderPass(GradeShader));
@@ -672,14 +718,14 @@ export class Renderer {
       this.wallpaper = wallpaperTexture(theme);
       back = new THREE.Mesh(
         new THREE.PlaneGeometry(this.boundsW.w + 30, this.boundsW.h + 20),
-        new THREE.MeshStandardMaterial({ map: this.wallpaper, roughness: 0.85, metalness: 0, envMapIntensity: 0.35 }));
+        stdMat({ map: this.wallpaper, roughness: 0.85, metalness: 0, envMapIntensity: 0.35 }));
       back.position.set(this.boundsW.cx, this.boundsW.cy, -2.2);
       back.receiveShadow = true;
       g.add(back);
       // Skirting board where the wall meets the floor.
       const skirt = new THREE.Mesh(
         new THREE.BoxGeometry(this.boundsW.w + 30, 0.7, 0.25),
-        new THREE.MeshPhysicalMaterial({ color: mixHex(theme.wall, '#ffffff', 0.15), roughness: 0.4, clearcoat: 0.6 }));
+        physMat({ color: mixHex(theme.wall, '#ffffff', 0.15), roughness: 0.4, clearcoat: 0.6 }));
       skirt.position.set(this.boundsW.cx, minY + 0.75, -2.05);
       skirt.receiveShadow = true;
       g.add(skirt);
@@ -693,17 +739,17 @@ export class Renderer {
     }
     const floorColor = cosmetics.room === 'garden' ? '#3c8a5f' : cosmetics.room === 'clocktower' ? '#5d4a8a' : theme.floor;
     const floorMat = detailed
-      ? new THREE.MeshPhysicalMaterial({
+      ? physMat({
         color: '#ffffff', map: floorTexture(floorColor), roughness: 0.55, clearcoat: 0.5, clearcoatRoughness: 0.25, envMapIntensity: 0.3,
       })
-      : new THREE.MeshStandardMaterial({ color: floorColor, roughness: 0.9 });
+      : stdMat({ color: floorColor, roughness: 0.9 });
     const floor = new THREE.Mesh(new THREE.BoxGeometry(this.boundsW.w + 30, 1.6, 10), floorMat);
     floor.position.set(this.boundsW.cx, minY - 0.4, 1);
     floor.receiveShadow = true;
     g.add(floor);
     const wallMat = detailed
-      ? new THREE.MeshStandardMaterial({ color: theme.wall, map: bandTexture(4, '#ffffff', '#d9d9d9'), roughness: 0.6 })
-      : new THREE.MeshStandardMaterial({ color: theme.wall, roughness: 0.95 });
+      ? stdMat({ color: theme.wall, map: bandTexture(4, '#ffffff', '#d9d9d9'), roughness: 0.6 })
+      : stdMat({ color: theme.wall, roughness: 0.95 });
     if (detailed) wallMat.map.repeat.set(1, 6);
     for (const sx of [-1, 1]) {
       const wall = new THREE.Mesh(new THREE.BoxGeometry(0.8, this.boundsW.h + 12, 6), wallMat);
@@ -735,16 +781,16 @@ export class Renderer {
 
     // Ropes: drooping quadratic tubes + peg anchors; rebuilt on cut/move.
     const ropeMat = detailed
-      ? new THREE.MeshStandardMaterial({ color: theme.rope, map: bandTexture(6, '#ffffff', '#b8b0c0'), roughness: 0.75 })
-      : new THREE.MeshStandardMaterial({ color: theme.rope, roughness: 0.7 });
+      ? stdMat({ color: theme.rope, map: bandTexture(6, '#ffffff', '#b8b0c0'), roughness: 0.75 })
+      : stdMat({ color: theme.rope, roughness: 0.7 });
     if (detailed) ropeMat.map.repeat.set(14, 1);
     const pegMat = detailed
-      ? new THREE.MeshPhysicalMaterial({ color: theme.metal, roughness: 0.28, metalness: 0.65, clearcoat: 0.5 })
-      : new THREE.MeshStandardMaterial({ color: theme.metal, roughness: 0.4, metalness: 0.4 });
+      ? physMat({ color: theme.metal, roughness: 0.28, metalness: 0.65, clearcoat: 0.5 })
+      : stdMat({ color: theme.metal, roughness: 0.4, metalness: 0.4 });
     this.ropeRadius = detailed ? 0.06 : 0.05;
     for (const r of state.ropes) {
       const rec = { rope: r, mesh: null, mat: ropeMat };
-      const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.5, detailed ? 20 : 12), pegMat);
+      const peg = new THREE.Mesh(new THREE.CylinderGeometry(0.16, 0.16, 0.5, seg(detailed ? 20 : 12)), pegMat);
       peg.rotation.x = Math.PI / 2;
       peg.castShadow = true;
       rec.peg = peg;
@@ -788,10 +834,10 @@ export class Renderer {
       : { depth: 0.15, bevelEnabled: false });
     if (detailed) starGeo.center();
     const starMat = detailed
-      ? new THREE.MeshPhysicalMaterial({
+      ? physMat({
         color: theme.star, emissive: theme.star, emissiveIntensity: 0.5, roughness: 0.22, metalness: 0.35, clearcoat: 1,
       })
-      : new THREE.MeshStandardMaterial({ color: theme.star, emissive: theme.star, emissiveIntensity: 0.35, roughness: 0.3 });
+      : stdMat({ color: theme.star, emissive: theme.star, emissiveIntensity: 0.35, roughness: 0.3 });
     this.starMat = starMat;
     for (const s of state.stars) {
       const m = new THREE.Mesh(starGeo, starMat);
@@ -804,13 +850,13 @@ export class Renderer {
     // Bubbles: iridescent soap film when detailed.
     for (const b of state.bubbles) {
       const m = new THREE.Mesh(
-        new THREE.SphereGeometry(s2w(b.r), detailed ? 32 : 20, detailed ? 24 : 14),
+        new THREE.SphereGeometry(s2w(b.r), seg(detailed ? 32 : 20), seg(detailed ? 24 : 14)),
         detailed
-          ? new THREE.MeshPhysicalMaterial({
+          ? physMat({
             color: theme.accent2, transparent: true, opacity: 0.32, roughness: 0.05, metalness: 0,
             iridescence: 1, iridescenceIOR: 1.3, clearcoat: 1, envMapIntensity: 0.9, depthWrite: false,
           })
-          : new THREE.MeshStandardMaterial({
+          : stdMat({
             color: theme.accent2, transparent: true, opacity: 0.3, roughness: 0.1, metalness: 0.2,
           }));
       m.position.set(s2w(b.x), s2w(b.y), 0);
@@ -828,17 +874,17 @@ export class Renderer {
       const rec = { fan: f, blades: null, stream: null };
       const fg = new THREE.Group();
       const housing = new THREE.Mesh(
-        new THREE.CylinderGeometry(0.85, 0.95, 0.4, detailed ? 36 : 20),
+        new THREE.CylinderGeometry(0.85, 0.95, 0.4, seg(detailed ? 36 : 20)),
         detailed
-          ? new THREE.MeshPhysicalMaterial({ color: theme.metal, roughness: 0.3, metalness: 0.5, clearcoat: 0.6 })
-          : new THREE.MeshStandardMaterial({ color: theme.metal, roughness: 0.5, metalness: 0.3 }));
+          ? physMat({ color: theme.metal, roughness: 0.3, metalness: 0.5, clearcoat: 0.6 })
+          : stdMat({ color: theme.metal, roughness: 0.5, metalness: 0.3 }));
       housing.rotation.x = Math.PI / 2;
       housing.castShadow = true;
       fg.add(housing);
       const blades = new THREE.Group();
       const bladeMat = detailed
-        ? new THREE.MeshPhysicalMaterial({ color: theme.accent2, roughness: 0.3, clearcoat: 1 })
-        : new THREE.MeshStandardMaterial({ color: theme.accent2, roughness: 0.4 });
+        ? physMat({ color: theme.accent2, roughness: 0.3, clearcoat: 1 })
+        : stdMat({ color: theme.accent2, roughness: 0.4 });
       for (let i = 0; i < 4; i++) {
         const bl = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.18, 0.05), bladeMat);
         bl.position.x = 0.4;
@@ -882,19 +928,19 @@ export class Renderer {
 
     // Bumpers: drum cylinders.
     const bumperMat = detailed
-      ? new THREE.MeshPhysicalMaterial({ color: theme.accent, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.1 })
-      : new THREE.MeshStandardMaterial({ color: theme.accent, roughness: 0.5 });
+      ? physMat({ color: theme.accent, roughness: 0.35, clearcoat: 1, clearcoatRoughness: 0.1 })
+      : stdMat({ color: theme.accent, roughness: 0.5 });
     for (const b of state.bumpers) {
-      const m = new THREE.Mesh(new THREE.CylinderGeometry(s2w(b.r), s2w(b.r), 0.5, detailed ? 40 : 22), bumperMat);
+      const m = new THREE.Mesh(new THREE.CylinderGeometry(s2w(b.r), s2w(b.r), 0.5, seg(detailed ? 40 : 22)), bumperMat);
       m.rotation.x = Math.PI / 2;
       m.position.set(s2w(b.x), s2w(b.y), 0);
       m.castShadow = true;
       g.add(m);
       const rim = new THREE.Mesh(
-        new THREE.TorusGeometry(s2w(b.r), 0.07, detailed ? 12 : 8, detailed ? 48 : 24),
+        new THREE.TorusGeometry(s2w(b.r), 0.07, seg(detailed ? 12 : 8), seg(detailed ? 48 : 24)),
         detailed
-          ? new THREE.MeshPhysicalMaterial({ color: theme.metal, metalness: 0.7, roughness: 0.25, clearcoat: 0.5 })
-          : new THREE.MeshStandardMaterial({ color: theme.metal, metalness: 0.5, roughness: 0.4 }));
+          ? physMat({ color: theme.metal, metalness: 0.7, roughness: 0.25, clearcoat: 0.5 })
+          : stdMat({ color: theme.metal, metalness: 0.5, roughness: 0.4 }));
       rim.position.copy(m.position);
       rim.castShadow = true;
       g.add(rim);
@@ -902,10 +948,10 @@ export class Renderer {
 
     // Spikes: gear with teeth — always distinct silhouette.
     const spikeMat = detailed
-      ? new THREE.MeshPhysicalMaterial({
+      ? physMat({
         color: theme.hazard, roughness: 0.4, metalness: 0.15, clearcoat: 0.5, emissive: theme.hazard, emissiveIntensity: 0.05,
       })
-      : new THREE.MeshStandardMaterial({ color: theme.hazard, roughness: 0.5 });
+      : stdMat({ color: theme.hazard, roughness: 0.5 });
     for (const s of state.spikes) {
       const gear = new THREE.Group();
       const core = new THREE.Mesh(new THREE.CylinderGeometry(s2w(s.r) * 0.7, s2w(s.r) * 0.7, 0.4, 16), spikeMat);
@@ -1049,7 +1095,7 @@ export class Renderer {
     const curve = new THREE.QuadraticBezierCurve3(
       new THREE.Vector3(ax, ay, 0), mid, new THREE.Vector3(tx, ty, 0));
     const geo = this.detailed
-      ? new THREE.TubeGeometry(curve, 24, this.ropeRadius, 8, false)
+      ? new THREE.TubeGeometry(curve, seg(24, 8), this.ropeRadius, seg(8), false)
       : new THREE.TubeGeometry(curve, 16, 0.05, 6, false);
     if (rec.mesh) {
       rec.mesh.geometry.dispose();

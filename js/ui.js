@@ -625,7 +625,7 @@ export class UI {
       for (const [cat, sel] of Object.entries(catSelects)) {
         sel.options[0].textContent = fmt(S.fromPreset, { tier: tierName(presetTier(presetNow, cat)) });
       }
-      summary.textContent = [g.gpu, summaryText(g.resolved, g.pixels, S)].join(' · ');
+      summary.textContent = [g.gpu, Number.isFinite(g.level) ? fmt(S.level, { n: g.level }) : null, summaryText(g.resolved, g.pixels, S)].filter(Boolean).join(' · ');
       summary.setAttribute('data-preset', presetNow);
       note.textContent = S.postFailed;
       note.hidden = !g.postFailed;

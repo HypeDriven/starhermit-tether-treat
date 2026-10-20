@@ -97,6 +97,7 @@ The Three.js canvas fills the game region but is never the only UI. Menus, text,
 - Gamepad: focus navigation, primary/secondary actions, pause, and remappable axes/buttons.
 - Prevent accidental double commits with action identifiers, not arbitrary long debounce timers. Provide visible drag origin, target preview, and invalid-action explanation.
 - Tapping a pick proxy maps it to its action (rope → cut, bubble → pop, fan → fan): tapping a bubble that holds the treat pops it, and an invalid tap shows its reason (e.g. "Nothing to pop yet.") in a tooltip centred just above the tapped point.
+- The DOM action mirror keeps one row and button per legal action and updates them in place when actions or sim events (stars, bounces, bubbles) refresh it, so a click always lands on the button it was pressed on and keyboard focus stays on its action.
 
 ### Accessibility
 

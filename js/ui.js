@@ -814,31 +814,46 @@ export class UI {
     this.announce(text);
   }
 
-  /** Rebuild the board-state mirror list from legal actions. */
+  /** Sync the board-state mirror list with the legal actions. */
   updateMirror(actions, focusIndex) {
-    // The list is rebuilt after every action; keyboard users must not be
-    // dumped back to <body>, so remember where the focus was.
+    // The list refreshes after every action and every sim event (stars,
+    // bounces, bubbles), so each action keeps its row and button, updated in
+    // place: a button replaced between press and release would lose its
+    // click. Keyboard users must not be dumped back to <body> when their row
+    // goes, so remember where the focus was.
+    const list = this.mirrorList;
     const active = document.activeElement;
-    const focusedRow = this.mirrorList.contains(active)
-      ? Array.prototype.indexOf.call(this.mirrorList.children, active.closest('li'))
+    const focusedRow = list.contains(active)
+      ? Array.prototype.indexOf.call(list.children, active.closest('li'))
       : -1;
-    this.mirrorList.replaceChildren();
+    const keys = actions.map((a) => a.type + ':' + a.id);
+    const rows = new Map();
+    for (const li of Array.from(list.children)) {
+      if (keys.includes(li.dataset.action)) rows.set(li.dataset.action, li);
+      else li.remove();
+    }
     if (!actions.length) {
-      this.mirrorList.appendChild(el('li', { class: 'tt-dim' }, t('noActions')));
+      list.appendChild(el('li', { class: 'tt-dim' }, t('noActions')));
       return;
     }
     actions.forEach((a, i) => {
-      const li = el('li', {});
-      const b = el('button', {
-        class: 'tt-btn tt-btn-sm' + (i === focusIndex ? ' tt-btn-focus' : ''),
-        type: 'button',
-      }, actionLabel(a));
-      b.addEventListener('click', () => this.h.confirmAction(a));
-      li.appendChild(b);
-      this.mirrorList.appendChild(li);
+      const key = keys[i];
+      let li = rows.get(key);
+      if (!li) {
+        li = el('li', { 'data-action': key });
+        const b = el('button', { class: 'tt-btn tt-btn-sm', type: 'button' });
+        b.addEventListener('click', () => this.h.confirmAction(li._action));
+        li.appendChild(b);
+      }
+      li._action = a;
+      const b = li.firstChild;
+      const label = actionLabel(a);
+      if (b.textContent !== label) b.textContent = label;
+      b.classList.toggle('tt-btn-focus', i === focusIndex);
+      if (list.children[i] !== li) list.insertBefore(li, list.children[i] || null);
     });
-    if (focusedRow >= 0) {
-      const row = this.mirrorList.children[Math.min(focusedRow, actions.length - 1)];
+    if (focusedRow >= 0 && !list.contains(document.activeElement)) {
+      const row = list.children[Math.min(focusedRow, actions.length - 1)];
       const b = row && row.querySelector('button');
       if (b) b.focus();
     }

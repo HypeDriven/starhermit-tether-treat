@@ -73,6 +73,8 @@ const enUS = {
   progressSynced: 'Progress synced from your StarHermit account.', progressMerged: 'Progress from another device was merged.',
   failedToStart: 'Tether Treat failed to start: {error}',
   playerN: 'Player {id}', dailyName: 'Daily Drop · {date}', practiceName: 'Practice · {level}',
+  focusedAction: 'Focused: {action}', optRuntime: 'Volume, graphics, language, larger text, high contrast and reduced motion are in the StarHermit Options.',
+  openOptions: 'Open Options', keyBindings: 'Key bindings',
   levels: {
     'learn-1': 'Snip the Rope', 'learn-2': 'Swing First', 'learn-3': 'Star Snack', 'learn-4': 'Bubble Ride', 'learn-5': 'A Gentle Breeze', 'learn-6': 'Bumpers & Spikes',
     j01: 'First Drop', j02: 'Twin Tethers', j03: 'Swing Low', j04: 'Order Up', j05: 'Star String', j06: 'Slack Line', j07: 'High Wire', j08: 'Garage Gauntlet',
@@ -189,6 +191,8 @@ const es419 = {
   progressSynced: 'Progreso sincronizado desde tu cuenta de StarHermit.', progressMerged: 'Se combinó el progreso de otro dispositivo.',
   failedToStart: 'Tether Treat no pudo iniciarse: {error}',
   playerN: 'Jugador {id}', dailyName: 'Entrega diaria · {date}', practiceName: 'Práctica · {level}',
+  focusedAction: 'Seleccionado: {action}', optRuntime: 'El volumen, los gráficos, el idioma, el texto más grande, el alto contraste y el movimiento reducido están en las Opciones de StarHermit.',
+  openOptions: 'Abrir Opciones', keyBindings: 'Asignación de teclas',
   levels: {
     'learn-1': 'Corta la cuerda', 'learn-2': 'Primero el balanceo', 'learn-3': 'Merienda de estrellas', 'learn-4': 'Paseo en burbuja', 'learn-5': 'Una brisa suave', 'learn-6': 'Rebotadores y pinchos',
     j01: 'Primera caída', j02: 'Cuerdas gemelas', j03: 'Balanceo bajo', j04: 'Pedido listo', j05: 'Hilera de estrellas', j06: 'Cuerda floja', j07: 'Cable alto', j08: 'Prueba del taller',
@@ -309,6 +313,8 @@ const deDE = {
   progressSynced: 'Fortschritt aus deinem StarHermit-Konto synchronisiert.', progressMerged: 'Fortschritt von einem anderen Gerät wurde zusammengeführt.',
   failedToStart: 'Tether Treat konnte nicht starten: {error}',
   playerN: 'Spieler {id}', dailyName: 'Tageslieferung · {date}', practiceName: 'Übung · {level}',
+  focusedAction: 'Ausgewählt: {action}', optRuntime: 'Lautstärke, Grafik, Sprache, größere Schrift, hoher Kontrast und reduzierte Bewegung findest du in den StarHermit-Optionen.',
+  openOptions: 'Optionen öffnen', keyBindings: 'Tastenbelegung',
   levels: {
     'learn-1': 'Kapp das Seil', 'learn-2': 'Erst schwingen', 'learn-3': 'Sternensnack', 'learn-4': 'Blasenfahrt', 'learn-5': 'Eine sanfte Brise', 'learn-6': 'Pauken und Stacheln',
     j01: 'Erster Fall', j02: 'Zwillingsseile', j03: 'Tief schwingen', j04: 'Bestellung fertig', j05: 'Sternenkette', j06: 'Schlaffes Seil', j07: 'Hochseil', j08: 'Garagen-Spießrutenlauf',
@@ -419,6 +425,8 @@ const frFR = {
   progressSynced: 'Progression synchronisée depuis votre compte StarHermit.', progressMerged: 'La progression d’un autre appareil a été fusionnée.',
   failedToStart: 'Tether Treat n’a pas pu démarrer : {error}',
   playerN: 'Joueur {id}', dailyName: 'Livraison du jour · {date}', practiceName: 'Entraînement · {level}',
+  focusedAction: 'Sélectionné : {action}', optRuntime: 'Le volume, les graphismes, la langue, le texte agrandi, le contraste élevé et les animations réduites se trouvent dans les Options StarHermit.',
+  openOptions: 'Ouvrir les Options', keyBindings: 'Touches',
   levels: {
     'learn-1': 'Coupez la corde', 'learn-2': 'D’abord le balancement', 'learn-3': 'Goûter d’étoiles', 'learn-4': 'Balade en bulle', 'learn-5': 'Une douce brise', 'learn-6': 'Rebonds et pointes',
     j01: 'Première chute', j02: 'Cordes jumelles', j03: 'Balancement bas', j04: 'Commande prête', j05: 'Chapelet d’étoiles', j06: 'Corde lâche', j07: 'Corde raide', j08: 'Épreuve du garage',
@@ -536,6 +544,8 @@ const ptBR = {
   progressSynced: 'Progresso sincronizado da sua conta StarHermit.', progressMerged: 'O progresso de outro dispositivo foi combinado.',
   failedToStart: 'Tether Treat não conseguiu iniciar: {error}',
   playerN: 'Jogador {id}', dailyName: 'Entrega diária · {date}', practiceName: 'Treino · {level}',
+  focusedAction: 'Selecionado: {action}', optRuntime: 'Volume, gráficos, idioma, texto maior, alto contraste e movimento reduzido ficam nas Opções do StarHermit.',
+  openOptions: 'Abrir Opções', keyBindings: 'Atalhos de teclado',
   levels: {
     'learn-1': 'Corte a corda', 'learn-2': 'Primeiro o balanço', 'learn-3': 'Lanche de estrelas', 'learn-4': 'Passeio de bolha', 'learn-5': 'Uma brisa suave', 'learn-6': 'Rebatedores e espinhos',
     j01: 'Primeira queda', j02: 'Cordas gêmeas', j03: 'Balanço baixo', j04: 'Pedido pronto', j05: 'Fileira de estrelas', j06: 'Corda frouxa', j07: 'Corda bamba', j08: 'Desafio da garagem',
@@ -646,6 +656,8 @@ const itIT = {
   progressSynced: 'Progressi sincronizzati dal tuo account StarHermit.', progressMerged: 'I progressi di un altro dispositivo sono stati uniti.',
   failedToStart: 'Impossibile avviare Tether Treat: {error}',
   playerN: 'Giocatore {id}', dailyName: 'Consegna del giorno · {date}', practiceName: 'Allenamento · {level}',
+  focusedAction: 'Selezionato: {action}', optRuntime: 'Volume, grafica, lingua, testo più grande, contrasto elevato e movimento ridotto si trovano nelle Opzioni di StarHermit.',
+  openOptions: 'Apri Opzioni', keyBindings: 'Assegnazione tasti',
   levels: {
     'learn-1': 'Taglia la corda', 'learn-2': 'Prima l’oscillazione', 'learn-3': 'Merenda di stelle', 'learn-4': 'Giro in bolla', 'learn-5': 'Una brezza leggera', 'learn-6': 'Respingenti e punte',
     j01: 'Prima caduta', j02: 'Corde gemelle', j03: 'Oscillazione bassa', j04: 'Ordine pronto', j05: 'Fila di stelle', j06: 'Corda lenta', j07: 'Filo alto', j08: 'Prova del garage',

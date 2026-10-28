@@ -104,6 +104,11 @@ export class Session {
     const id = this.roundId + ':' + (++this.commandSeq);
     const res = applyCommand(this.state, { id, type, target, on });
     if (!res.ok && !this.state.noUndo) this.undoStack.pop();
+    // The action itself can complete a lesson step (a `require` step met by
+    // this command): advance now. The browser build only advanced on a
+    // simulation tick's events, so a lesson whose treat hangs still after the
+    // required action (Learn 5: fan on, then snip) never reached its next step.
+    if (res.ok && res.events.length) this.advanceTutorial(res.events);
     return res;
   }
 

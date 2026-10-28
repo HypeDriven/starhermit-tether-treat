@@ -9,11 +9,11 @@ import { LEVELS, TUTORIALS, CHALLENGES, WORLDS } from '../js/levels.js';
 import { ACHIEVEMENTS, COSMETICS } from '../js/content.js';
 
 const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
-const code = readdirSync(new URL('../js/', import.meta.url)).filter((f) => f.endsWith('.js') && f !== 'strings.js')
-  .map((f) => readFileSync(new URL('../js/' + f, import.meta.url), 'utf8')).join('\n');
+const code = readdirSync(new URL('../native/', import.meta.url)).filter((f) => f.endsWith('.ts'))
+  .map((f) => readFileSync(new URL('../native/' + f, import.meta.url), 'utf8')).join('\n');
 const used = new Set();
-for (const m of code.matchAll(/\bt\('([A-Za-z0-9]+)'(?!\s*\+)/g)) used.add(m[1]);
-for (const m of code.matchAll(/'((?:sync|scr|kind|err|reason|help|board|diff|slot|act|next|result|announce|hint)[A-Z][A-Za-z]*)'/g)) used.add(m[1]);
+for (const m of code.matchAll(/\bT\("([A-Za-z0-9]+)"(?!\s*\+)/g)) used.add(m[1]);
+for (const m of code.matchAll(/"((?:sync|scr|kind|err|reason|help|board|diff|slot|act|next|result|announce|hint)[A-Z][A-Za-z]*)"/g)) used.add(m[1]);
 for (const k of ['diffEasy', 'diffMedium', 'diffHard', 'boardGlobal', 'boardDaily', 'boardFriends', 'slotTreat', 'slotTrail', 'slotRoom',
   'helpCutText', 'helpStarsText', 'helpBubbleText', 'helpFanText', 'helpBumperText', 'helpSpikesText', 'helpSliderText']) used.add(k);
 const vars = (s) => [...String(s).matchAll(/\{(\w+)\}/g)].map((m) => m[1]).sort().join(',');

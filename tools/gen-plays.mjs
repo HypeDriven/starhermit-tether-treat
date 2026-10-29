@@ -3,7 +3,7 @@
 // press lands on the tick that delivers the treat and the expected scores
 // are exact. A render check plays one 120 Hz fixed step per frame, so a
 // press's tick is a frame count after the countdown's "Go!" (measured on
-// engine 1.23.0 at minor 23: a `click` acts 70 frames, a `touch` 72 frames
+// engine 1.24.0 at minor 23: a `click` acts 70 frames, a `touch` 72 frames
 // after the frames before it, and a `click` line takes 7 frames). Run
 // `npm run plays` after content, label or timing changes.
 import { writeFileSync } from 'node:fs';

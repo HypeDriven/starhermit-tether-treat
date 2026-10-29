@@ -35,7 +35,7 @@
     "sfx/stalled-wind-down.opus": {"sha256": "d76fe178e6e6eb8f2a39b16bef48ee16e0e1688e8b7887644251b14dce22a90b", "size": 23733},
     "sfx/star-chime.opus": {"sha256": "4a192d5490924607e61a1bd8e37017b3afa019f3c1bdaa709248021137340ee3", "size": 27960},
     "sfx/time-up-buzzer.opus": {"sha256": "18341dc97c2d3c5c6bb07f82896533748d0c6461aa51b9f0e9a31991066ea105", "size": 24425},
-    "starhermit.txt": {"sha256": "fcf955aecf9b728872a02dd488c0207003b1bdcd8292ac7219bfd7b696ea4451", "size": 1925}
+    "starhermit.txt": {"sha256": "13fec77a503a96c0cc8051e2bd578c630cf6dcaad63e279db1a5ee670bb33356", "size": 1925}
   },
   "excluded": ["LICENSE.md", "coverart.png", "data/", "node_modules/", "package-lock.json", "package.json", "server.js", "sfx/manifest.json", "sfx/manifest.md", "spec.md", "tests/", "tools/", "tsconfig.json"],
   "format": 1

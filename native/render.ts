@@ -33,8 +33,7 @@
 // The old canvas sat in its own box between the header and the rails; the
 // camera is fitted to that box's aspect and shown there with a view offset
 // (screens.ts paints the page around it). Canvas textures the old page left
-// in NoColorSpace (three read them as linear) are drawn sRGB-encoded so they
-// come out as they did.
+// in NoColorSpace stay NoColorSpace (minor 28+ reads them as stored, as three).
 import {
   ACESFilmicToneMapping, AdditiveBlending, BoxGeometry, BufferAttribute, BufferGeometry, CanvasTexture, CapsuleGeometry, Color,
   ConeGeometry, CylinderGeometry, DirectionalLight, DoubleSide, ExtrudeGeometry, Fog, Group, HemisphereLight, LatheGeometry, Mesh,
@@ -78,12 +77,6 @@ const stdMat = (p: P): Lit => litMaterial(look!.budget.material === "lambert" ? 
 function hexOf(c: Color): string { return "#" + c.getHex().toString(16).padStart(6, "0"); }
 /** render.js mixHex (three's lerp in linear light). */
 function mixHex(a: string, b: string, t: number): string { return hexOf(new Color(a).lerp(new Color(b), t)); }
-/** A colour three drew from a NoColorSpace canvas (bytes taken as linear), as the sRGB byte that decodes to it. */
-function asLinear(hex: string): string {
-  const n = parseInt(hex.slice(1), 16);
-  const enc = (v: number): number => { v /= 255; const s = v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055; return Math.round(Math.min(1, s) * 255); };
-  return "#" + ((enc((n >> 16) & 255) << 16) | (enc((n >> 8) & 255) << 8) | enc(n & 255)).toString(16).padStart(6, "0");
-}
 
 // ---------------------------------------------------------------- canvas textures (render.js)
 function texRng(seed: number): () => number {
@@ -178,7 +171,7 @@ function gradientTexture(c0: string, c1: string): CanvasTexture {
   const cv = new OffscreenCanvas(4, 128);
   const ctx = cv.getContext("2d")!;
   const gr = ctx.createLinearGradient(0, 0, 0, 128);
-  gr.addColorStop(0, asLinear(c1)); gr.addColorStop(1, asLinear(c0));
+  gr.addColorStop(0, c1); gr.addColorStop(1, c0);
   ctx.fillStyle = gr; ctx.fillRect(0, 0, 4, 128);
   return new CanvasTexture(cv);
 }
@@ -196,7 +189,7 @@ function makeGlyph(text: string, color: string): Sprite {
   const ctx = cv.getContext("2d")!;
   ctx.font = "44px sans-serif";
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
-  ctx.fillStyle = asLinear(color);
+  ctx.fillStyle = color;
   ctx.fillText(text, 32, 34);
   const sp = new Sprite(new SpriteMaterial({ map: new CanvasTexture(cv), transparent: true, depthTest: false }));
   sp.scale.set(0.7, 0.7, 1);
@@ -740,7 +733,8 @@ export function applyLook(next: Look): void {
   renderer.shadowMap.enabled = next.shadows > 0;
   applyShadow();
   // High threshold: only glowing stars, the goal and hot highlights bloom.
-  renderer.bloom = next.bloom ? { strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  // r160 page: UnrealBloomPass strength 0.45 → 0.45² at minor 29 (r185 bloom).
+  renderer.bloom = next.bloom ? { strength: 0.45 * 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
   renderer.ao = next.ao === "off" ? null : {
     blendIntensity: 0.75, radius: 0.9, distanceExponent: 1.2, thickness: 1.2, scale: 1.0,
     samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,

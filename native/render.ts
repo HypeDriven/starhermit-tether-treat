@@ -733,17 +733,17 @@ export function applyLook(next: Look): void {
   renderer.shadowMap.enabled = next.shadows > 0;
   applyShadow();
   // High threshold: only glowing stars, the goal and hot highlights bloom.
-  // r160 page: UnrealBloomPass strength 0.45 → 0.45² at minor 29 (r185 bloom).
-  renderer.bloom = next.bloom ? { strength: 0.45 * 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
+  // r160 page: UnrealBloomPass 0.45 as bloom.model "r160".
+  renderer.bloom = next.bloom ? { model: "r160", strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
   renderer.ao = next.ao === "off" ? null : {
     blendIntensity: 0.75, radius: 0.9, distanceExponent: 1.2, thickness: 1.2, scale: 1.0,
     samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
     denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
   };
-  // GradeShader after OutputPass (display space): a 0.22 S-curve (contrast 0.11 as a slope), saturation 1.12, cool shadows / warm
+  // GradeShader after OutputPass (display space): a 0.22 smoothstep S-curve (contrastCurve "s"), saturation 1.12, cool shadows / warm
   // highlights by a smoothstep of luma from 0.25 to 0.85, a 0.28 vignette from 0.38 to 0.9 (x × 1.1).
   renderer.grade = next.grade ? {
-    space: "display", contrast: 0.11, saturation: 1.12, split: [0.25, 0.85], shadows: [0.97, 0.97, 1.04], highlights: [1.04, 1.0, 0.97],
+    space: "display", contrastCurve: "s", contrast: 0.22, saturation: 1.12, split: [0.25, 0.85], shadows: [0.97, 0.97, 1.04], highlights: [1.04, 1.0, 0.97],
     vignette: { amount: 0.28, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
   renderer.antialias = next.antialias;

@@ -1,6 +1,6 @@
 # Tether Treat — Product and Game Specification
 
-**Document status:** running specification of the game on the StarHermit engine 1.27.0.  
+**Document status:** running specification of the game on the StarHermit engine 1.28.0.  
 **Game index:** 52  
 **Genre:** Physics sequencing puzzle  
 **Players:** 1 player; optional asynchronous score comparison  
@@ -139,7 +139,7 @@ The room is lit by a warm key light from upper-left-front, a hemisphere fill, a 
 | High | 2048² | half-res GTAO + bloom, grade, SMAA | Physical (clear coat) | authored | ×1 | 180 | 70 |
 | Ultra | 4096² | full-res GTAO (16 samples) + bloom, grade, MSAA | Physical | 1.5× | ×2 | 260 | 110 |
 
-Pools and motes scale ≤ 2× within a tier by the level index. Engine minor 23 follows three.js r185: the old r160 page's light intensities are used as written, its own shadow camera (fitted to the framed play area), bias −0.0004, normal bias 0.03 and radius 3; `RoomEnvironment(renderer)` through PMREM (sigma 0.04), each lit material carrying it as its own envMap at the old envMapIntensity (wall 0.35, floor 0.3, bubbles 0.9, others 0.4), which is what r160 did with scene.environment. Bloom 0.45 / 0.35 / threshold 0.92 (strength squared, 0.45², for minor 29's three r185 UnrealBloomPass); the grade is the old display-space S-curve, saturation and vignette (`renderer.grade`). Render scale, adaptive resolution, frame-rate limit and readout are the runtime's. Motes, wallpaper drift and blinks stop under the runtime's Reduced motion option.
+Pools and motes scale ≤ 2× within a tier by the level index. Engine minor 23 follows three.js r185: the old r160 page's light intensities are used as written, its own shadow camera (fitted to the framed play area), bias −0.0004, normal bias 0.03 and radius 3; `RoomEnvironment(renderer)` through PMREM (sigma 0.04), each lit material carrying it as its own envMap at the old envMapIntensity (wall 0.35, floor 0.3, bubbles 0.9, others 0.4), which is what r160 did with scene.environment. Bloom 0.45 / 0.35 / threshold 0.92 (the page's strength with bloom.model "r160"); the grade is the old display-space S-curve, saturation and vignette (`renderer.grade`). Render scale, adaptive resolution, frame-rate limit and readout are the runtime's. Motes, wallpaper drift and blinks stop under the runtime's Reduced motion option.
 
 ### Camera and motion
 
@@ -171,9 +171,9 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - Avoid runtime shader compilation during active play by prewarming required variants. Avoid per-frame allocations in simulation/render loops.
 - Quality tiers independently control shadows, environment detail, particles, post effects, antialiasing, and render scale; they never alter rules or visibility of hazards.
 
-## 5. Technical architecture (StarHermit engine 1.27.0, host API 1.29, engine.minor 29)
+## 5. Technical architecture (StarHermit engine 1.28.0, host API 1.30, engine.minor 30)
 
-A StarHermit engine script game (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.27.0`, `engine.minor=29`, capabilities platform, storage, clipboard), played natively by the StarHermit client and in browsers by the engine's web runtime through the loader `index.html` that `npm run package` writes with `starhermit-files.json`.
+A StarHermit engine script game (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.28.0`, `engine.minor=30`, capabilities platform, storage, clipboard), played natively by the StarHermit client and in browsers by the engine's web runtime through the loader `index.html` that `npm run package` writes with `starhermit-files.json`.
 
 - `js/` (pure, shared with node tests and `server.js`): `physics.js` (integer fixed-point physics, 120 Hz), `rules.js`, `rng.js`, `content.js` (themes, generators, validators, hints, achievements, cosmetics), `levels.js`, `session.js` (validated commands, undo, lesson steps, settle), `save.js` (save model), `strings.js` / `sh-i18n.js` (nine locales).
 - `native/main.ts`: the state machine (title → screens → countdown → active ⇄ paused → resolving → results), the simulation on the runtime's fixed steps (`setFixedRate(120)`: one rules tick per step; the countdown — 3, 2, 1, Go! at 0.65 s each, or Go! for 0.4 s under reduced motion — and the 1.3 s / 0.3 s resolve delay are counted in steps), actions, input, results and lifecycle (a hidden window pauses the round).

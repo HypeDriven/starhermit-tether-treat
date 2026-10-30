@@ -389,6 +389,7 @@ function ensureEnvironment(): Texture | null {
   try {
     const pmrem = new PMREMGenerator(renderer);
     const room = new RoomEnvironment(renderer);
+    room.position.y = 0; // the page's three r160 (pre-r183) builds the room at the origin
     envTex = pmrem.fromScene(room, 0.04).texture;
     pmrem.dispose();
   } catch (e) { console.warn(`environment: ${String(e)}`); }

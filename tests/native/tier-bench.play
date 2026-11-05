@@ -1,0 +1,13 @@
+# The challenge "Sprint: Swing Low" with the treat swinging on its rope, for tools/engine-tier-bench.mjs.
+# viewport 1280x800@1
+until 600 =Journey map
+frames 30
+click Challenge
+until 300 Sprint: Swing Low
+frames 10
+click Sprint: Swing Low
+until 900 =Go!
+frames 120
+measure start
+frames 600
+measure stop

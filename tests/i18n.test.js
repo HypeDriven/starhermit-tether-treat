@@ -4,10 +4,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
-import { STRINGS } from '../js/strings.js';
 import { LEVELS, TUTORIALS, CHALLENGES, WORLDS } from '../js/levels.js';
 import { ACHIEVEMENTS, COSMETICS } from '../js/content.js';
 
+const STRINGS = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'));
 const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
 const code = readdirSync(new URL('../native/', import.meta.url)).filter((f) => f.endsWith('.ts'))
   .map((f) => readFileSync(new URL('../native/' + f, import.meta.url), 'utf8')).join('\n');
@@ -28,18 +28,18 @@ for (const loc of LOCALES) {
   });
   test(`${loc}: every content name`, () => {
     const L = STRINGS[loc];
-    for (const l of [...LEVELS, ...TUTORIALS, ...CHALLENGES]) assert.ok(L.levels[l.id], `${loc} level ${l.id}`);
-    for (const c of CHALLENGES) assert.ok(L.blurbs[c.id], `${loc} blurb ${c.id}`);
-    for (const tu of TUTORIALS) assert.equal(L.coach[tu.id].length, tu.tutorial.length, `${loc} coach ${tu.id}`);
-    for (const w of WORLDS) assert.ok(L.worlds[w.id] && L.mechanics[w.id], `${loc} world ${w.id}`);
-    for (const a of ACHIEVEMENTS) assert.equal(L.achievements[a.key].length, 2, `${loc} achievement ${a.key}`);
-    for (const slot of Object.keys(COSMETICS)) for (const c of COSMETICS[slot]) assert.ok(L.cosmetics[c.id], `${loc} cosmetic ${c.id}`);
+    for (const l of [...LEVELS, ...TUTORIALS, ...CHALLENGES]) assert.ok(L[`levels.${l.id}`], `${loc} level ${l.id}`);
+    for (const c of CHALLENGES) assert.ok(L[`blurbs.${c.id}`], `${loc} blurb ${c.id}`);
+    for (const tu of TUTORIALS) tu.tutorial.forEach((_, i) => assert.ok(L[`coach.${tu.id}.${i}`], `${loc} coach ${tu.id} ${i}`));
+    for (const w of WORLDS) assert.ok(L[`worlds.${w.id}`] && L[`mechanics.${w.id}`], `${loc} world ${w.id}`);
+    for (const a of ACHIEVEMENTS) assert.ok(L[`achievements.${a.key}.0`] && L[`achievements.${a.key}.1`], `${loc} achievement ${a.key}`);
+    for (const slot of Object.keys(COSMETICS)) for (const c of COSMETICS[slot]) assert.ok(L[`cosmetics.${c.id}`], `${loc} cosmetic ${c.id}`);
   });
 }
 test('English content strings match the authored data', () => {
   const en = STRINGS['en-US'];
-  for (const l of [...LEVELS, ...TUTORIALS, ...CHALLENGES]) assert.equal(en.levels[l.id], l.name);
-  for (const tu of TUTORIALS) tu.tutorial.forEach((st, i) => assert.equal(en.coach[tu.id][i], st.text));
+  for (const l of [...LEVELS, ...TUTORIALS, ...CHALLENGES]) assert.equal(en[`levels.${l.id}`], l.name);
+  for (const tu of TUTORIALS) tu.tutorial.forEach((st, i) => assert.equal(en[`coach.${tu.id}.${i}`], st.text));
 });
 test('non-English locales are translated', () => {
   for (const loc of LOCALES.filter((l) => !l.startsWith('en'))) {

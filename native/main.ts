@@ -14,7 +14,7 @@
 // results with progress, achievements and the score post, and the lifecycle
 // (a hidden window pauses the round, as visibilitychange did). Screens are
 // drawn by screens.ts (starhermit:ui), the room by render.ts (starhermit:scene).
-import { clipboard, frame, onPreferencesChange, onRender, onStart, onSuspend, onResume, onFixedUpdate, onUpdate, preferences, setFixedRate } from "starhermit:engine";
+import { afterRender, clipboard, frame, levelSettings, onPreferencesChange, onRender, onStart, onSuspend, onResume, onFixedUpdate, onUpdate, preferences, setFixedRate } from "starhermit:engine";
 import { onAction, onPointerButton, onPointerMove, onTouch, vibrate } from "starhermit:input";
 import * as ui from "starhermit:ui";
 import { fonts } from "starhermit:canvas";
@@ -79,9 +79,8 @@ export function toast(text: string): void {
   if (app.toasts.length > 3) app.toasts.shift();
   announce(text);
 }
-const pending: (() => void)[] = [];
 /** A widget's press, run once the frame's UI is built (state changes mid-build would break later widgets). */
-export function later(fn: () => void): void { pending.push(fn); }
+export function later(fn: () => void): void { afterRender(fn); }
 function haptic(ms: number): void { try { vibrate(ms); } catch { /* none */ } }
 const reducedMotion = (): boolean => preferences().reducedMotion;
 
@@ -108,7 +107,6 @@ export function goTitle(): void {
 }
 function dateKey(): string { return platform.now().toISOString().slice(0, 10); }
 export function startMode(mode: string, arg?: string): void {
-  audio.start();
   const progress = platform.progress();
   let level: Level | null = null;
   let ranked = false;
@@ -361,9 +359,9 @@ function finishRound(): void {
   app.results = r;
   // Signed in: Journey, Daily and Challenge rounds post their total to the high-score board; the results show the rank.
   if (platform.signedIn() && ["journey", "daily", "challenge"].includes(mode)) {
-    r.lb = { key: "lbPosting" };
+    r.lb = { key: "leaderboardPosting" };
     void platform.postScore(score.total).then((p) => {
-      r.lb = !p.posted ? { key: "lbNotPosted" } : p.rank ? { key: "lbRank", vars: { rank: p.rank } } : { key: "lbPosted" };
+      r.lb = !p.posted ? { key: "leaderboardNotPosted" } : p.rank ? { key: "leaderboardRank", vars: { rank: p.rank } } : { key: "leaderboardPosted" };
       announce(S(r.lb.key, r.lb.vars));
     });
   }
@@ -394,7 +392,7 @@ export function signIn(): void { void requestSignIn().catch(() => undefined); }
 export function invite(): void {
   const link = platform.inviteLink();
   if (!link) return;
-  try { clipboard.writeText(link); toast(S("copied")); } catch { toast(S("copyFail", { url: link })); }
+  try { clipboard.writeText(link); toast(S("inviteCopied")); } catch { toast(`${S("inviteFailed")}: ${link}`); }
 }
 export function resetTutorials(): void {
   platform.progress().tutorialsDone = [];
@@ -435,13 +433,12 @@ let lastTouch = -1e9;
 onTouch((e) => {
   lastTouch = now();
   if (e.control || !e.primary) return;
-  if (e.phase === "start") { audio.start(); queue.push({ kind: "down", x: e.x, y: e.y, ui: ui.pointerCaptured(), touch: true }); }
+  if (e.phase === "start") { queue.push({ kind: "down", x: e.x, y: e.y, ui: ui.pointerCaptured(), touch: true }); }
   else if (e.phase === "move") queue.push({ kind: "move", x: e.x, y: e.y, ui: false, touch: true });
   else queue.push({ kind: "up", x: e.x, y: e.y, ui: false, touch: true });
 });
 onPointerButton((e) => {
   if (e.button !== 0 || now() - lastTouch < 0.6) return;
-  if (e.pressed) audio.start();
   queue.push({ kind: e.pressed ? "down" : "up", x: e.x, y: e.y, ui: e.pressed && ui.pointerCaptured(), touch: false });
 });
 onPointerMove((x, y) => { if (now() - lastTouch >= 0.6) queue.push({ kind: "move", x, y, ui: false, touch: false }); });
@@ -518,16 +515,16 @@ function pointerInput(wasActive: boolean): void {
 // ------------------------------------------------------------------ boot and lifecycle
 let lookKey = "";
 function applyLook(): void {
-  const f = frame();
-  const k = `${f.quality}:${f.levelIndex}`;
-  if (k === lookKey) return;
-  lookKey = k;
-  render.applyLook(lookFor(f.quality, f.levelIndex));
+  const level = frame().level;
+  if (level === lookKey) return;
+  lookKey = level;
+  render.applyLook(lookFor(levelSettings(level)));
 }
 onStart(async () => {
   setFixedRate(TICK_RATE);
   initStyles();
   platform.initPlatform();
+  audio.start();
   render.setReducedMotion(preferences().reducedMotion);
   applyLook();
   // the target glyphs (✂ ◯ ➤) are baked into canvas textures: wait for their font
@@ -558,9 +555,11 @@ onUpdate((dt) => {
 onRender((alpha) => {
   const wasActive = app.phase === "active" && app.screen === null;
   drawScreens();
-  for (const fn of pending.splice(0)) fn();
-  pointerInput(wasActive);
-  const s = app.session;
-  if (s) render.update(s.state, app.prevTreat, app.phase === "active" ? alpha : 1, frameDt);
-  flushAnnouncements();
+  // queued after this frame's presses (later), so they act on this frame's scene
+  afterRender(() => {
+    pointerInput(wasActive);
+    const s = app.session;
+    if (s) render.update(s.state, app.prevTreat, app.phase === "active" ? alpha : 1, frameDt);
+    flushAnnouncements();
+  });
 });

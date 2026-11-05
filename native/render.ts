@@ -735,11 +735,12 @@ export function applyLook(next: Look): void {
   applyShadow();
   // High threshold: only glowing stars, the goal and hot highlights bloom.
   // r160 page: UnrealBloomPass 0.45 as bloom.model "r160".
-  renderer.bloom = next.bloom ? { model: "r160", strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.budget.bloomRes } : null;
-  renderer.ao = next.ao === "off" ? null : {
+  renderer.bloom = next.bloom === null ? null : { model: "r160", strength: 0.45, radius: 0.35, threshold: 0.92, resolution: next.bloom };
+  const full = !!next.ao && next.ao.resolution >= 1; // the engine's "high": full-resolution AO
+  renderer.ao = !next.ao ? null : {
     blendIntensity: 0.75, radius: 0.9, distanceExponent: 1.2, thickness: 1.2, scale: 1.0,
-    samples: next.ao === "high" ? 16 : 8, resolution: next.budget.aoRes,
-    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: next.ao === "high" ? 6 : 4, rings: 2, samples: next.ao === "high" ? 16 : 8, radiusExponent: 2 },
+    samples: next.ao.samples, resolution: next.ao.resolution,
+    denoise: { lumaPhi: 10, depthPhi: 2, normalPhi: 3, radius: full ? 6 : 4, rings: 2, samples: next.ao.denoiseSamples, radiusExponent: 2 },
   };
   // GradeShader after OutputPass (display space): a 0.22 smoothstep S-curve (contrastCurve "s"), saturation 1.12, cool shadows / warm
   // highlights by a smoothstep of luma from 0.25 to 0.85, a 0.28 vignette from 0.38 to 0.9 (x × 1.1).

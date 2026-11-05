@@ -110,7 +110,7 @@ The 3D board is never the only UI: menus, text, settings and the action mirror a
 
 ### Localization and language
 
-Every player-facing string ships in nine locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) in `js/strings.js` (flat keys plus per-id maps for levels, blurbs, coach steps, worlds, mechanics, achievements, cosmetics) and `js/sh-i18n.js` (account lines). The language is the runtime's interface language (Options › Language, else the account's preferred language or the device's); a change shows on the next frame without restarting the round. "Morsel" is a proper name and is not translated.
+Every player-facing string ships in nine locales (en-US, en-GB, es-419, es-ES, de-DE, fr-FR, fr-CA, pt-BR, it-IT) in `assets/strings.json` (flat keys plus per-id keys for levels, blurbs, coach steps, worlds, mechanics, achievements, cosmetics). The language is the runtime's interface language (Options › Language, else the account's preferred language or the device's); a change shows on the next frame without restarting the round. "Morsel" is a proper name and is not translated.
 
 ## 4. Visual and audio design
 
@@ -134,7 +134,7 @@ The room is lit by a warm key light from upper-left-front, a hemisphere fill, a 
 
 | Tier | Shadows | Post | Materials | Tessellation | Textures | Burst pool | Sugar motes |
 |---|---|---|---|---|---|---|---|
-| Low | off | none (MSAA) | Lambert, plain room | ½ | plain | 32 | — |
+| Low | off | none (no anti-aliasing) | Lambert, plain room | ½ | plain | 32 | — |
 | Balanced | 1024² | half-res bloom, grade, FXAA | Standard | ¾ | ×1 | 150 | 56 |
 | High | 2048² | half-res GTAO + bloom, grade, SMAA | Physical (clear coat) | authored | ×1 | 180 | 70 |
 | Ultra | 4096² | full-res GTAO (16 samples) + bloom, grade, MSAA | Physical | 1.5× | ×2 | 260 | 110 |

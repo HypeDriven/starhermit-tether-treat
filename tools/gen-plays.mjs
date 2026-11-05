@@ -6,16 +6,15 @@
 // engine 1.24.0 at minor 23: a `click` acts 70 frames, a `touch` 72 frames
 // after the frames before it, and a `click` line takes 7 frames). Run
 // `npm run plays` after content, label or timing changes.
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createGame, applyCommand, step, scoreOf, STATUS } from '../js/rules.js';
 import { triggerMet } from '../js/content.js';
 import { levelById } from '../js/levels.js';
-import { STRINGS } from '../js/strings.js';
 
 const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'tests', 'native');
-const EN = STRINGS['en-US'];
+const EN = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'))['en-US'];
 const t = (k, v = {}) => EN[k].replace(/\{(\w+)\}/g, (m, x) => (v[x] != null ? String(v[x]) : m));
 export const CLICK = { offset: 70, frames: 7 };
 export const TOUCH = { offset: 72, frames: 3 };
@@ -76,7 +75,7 @@ function round(id, how, lines, extra = []) {
   const level = levelById(id);
   const p = plan(level, how === 'touch' ? { gap: 30 } : {});
   if (p.reason !== 'delivered') throw new Error(`${id}: ${p.reason}`);
-  lines.push(`# ${id} (${EN.levels[id]}): ${p.acts.map((a) => `${a.type} ${a.id} at tick ${a.tick}`).join(', ')}`, 'until 900 =Go!');
+  lines.push(`# ${id} (${EN[`levels.${id}`]}): ${p.acts.map((a) => `${a.type} ${a.id} at tick ${a.tick}`).join(', ')}`, 'until 900 =Go!');
   lines.push(...presses(p.acts, how), ...extra);
   lines.push('until 1800 =Delivered!', 'frames 10', `expect =${p.score.total}`);
   return p;

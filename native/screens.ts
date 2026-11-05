@@ -32,10 +32,9 @@ interface Layout {
 }
 const lastSize = new Map<string, ui.Rect>();
 function layoutNow(): Layout {
-  const f = frame();
-  const sc = ui.preferences().scale;
-  const sa = f.safeArea;
-  const lw = Math.max(1, (f.width - sa.left - sa.right) / sc), lh = Math.max(1, (f.height - sa.top - sa.bottom) / sc);
+  const v = ui.viewport!();
+  const sc = v.scale;
+  const lw = Math.max(1, v.width), lh = Math.max(1, v.height);
   const wide = lw >= 1024, short = !wide && lh <= 500 && lw > lh;
   const header = short ? 36 : 44;
   const pad = short ? 6.4 : 12, gap = short ? 8 : 12;
@@ -60,7 +59,7 @@ function layoutNow(): Layout {
     board = { x: mx + pad, y: left ? top + railH + gap : top, w, h };
     rail = { x: mx + pad, y: left ? top : top + h + gap, w, h: null };
   }
-  return { lw, lh, sc, ox: sa.left, oy: sa.top, wide, short, phone: lw <= 480, header, board, rail };
+  return { lw, lh, sc, ox: v.x, oy: v.y, wide, short, phone: lw <= 480, header, board, rail };
 }
 function textWidth(text: string, style: string, kind?: "button"): number {
   return ui.measureText(text, { ...(kind ? { kind } : {}), style: [style] }).width / ui.preferences().scale;
@@ -93,18 +92,9 @@ function button(b: Btn): void {
 }
 /** .tt-row: buttons at their own widths in rows that wrap at `width` (gap 8). */
 function flow(label: string, list: Btn[], width: number, gap = 8): ui.Rect {
-  const rows: Btn[][] = [[]];
-  let used = 0;
-  const bw = (b: Btn): number => Math.min(width, b.width ?? buttonWidth(b.text, b.style ?? "btn"));
-  for (const b of list) {
-    const w = bw(b);
-    if (rows[rows.length - 1]!.length && used + gap + w > width) { rows.push([]); used = 0; }
-    used += (rows[rows.length - 1]!.length ? gap : 0) + w;
-    rows[rows.length - 1]!.push(b);
-  }
-  return ui.column(label, () => {
-    rows.forEach((row, ri) => ui.row(`${label}-r${ri}`, () => { for (const b of row) button({ ...b, width: bw(b) }); }, { spacing: gap, align: "center" }));
-  }, { spacing: gap, width });
+  return ui.row(label, () => {
+    for (const b of list) button({ ...b, width: Math.min(width, b.width ?? buttonWidth(b.text, b.style ?? "btn")) });
+  }, { wrap: true, width, gap, align: "center" });
 }
 
 // ------------------------------------------------------------------ the frame
@@ -606,7 +596,7 @@ function resultsScreen(w: number): void {
   if (facts.length) para(facts.join(" "), w, "dim", "results-facts");
   for (const key of r.achievements) {
     const a = Content.ACHIEVEMENTS.find((x) => x.key === key);
-    const text = tn<[string, string] | null>("achievements", key, a ? [a.name, a.desc] : null);
+    const text = a ? [tn("achievements", `${key}.0`, a.name), tn("achievements", `${key}.1`, a.desc)] as const : null;
     if (text) para("🏅 " + text[0] + " — " + text[1], w, "ach", `ach-${key}`);
   }
   if (r.lb) para(S(r.lb.key, r.lb.vars), w, "dim", "results-lb");

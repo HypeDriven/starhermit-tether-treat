@@ -1,3 +1,5 @@
+// localization-runtime:attached
+import { localizedCanvasFont as __l10nCanvasFont } from "./l10n/font.ts";
 // The candy-coloured mechanical playroom on starhermit:scene, as the browser
 // build's js/render.js drew it with three.js r160: the perspective camera
 // (42°) fitted to the round's content frame, the wallpapered back wall with
@@ -187,7 +189,7 @@ function radialTexture(alpha: number): CanvasTexture {
 function makeGlyph(text: string, color: string): Sprite {
   const cv = new OffscreenCanvas(64, 64);
   const ctx = cv.getContext("2d")!;
-  ctx.font = "44px sans-serif";
+  ctx.font = __l10nCanvasFont("44px sans-serif");
   ctx.textAlign = "center"; ctx.textBaseline = "middle";
   ctx.fillStyle = color;
   ctx.fillText(text, 32, 34);

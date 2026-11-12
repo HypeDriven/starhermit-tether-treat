@@ -1,3 +1,10 @@
+import { readFileSync as readReviewedIdentityData } from 'node:fs';
+const REVIEWED_IDENTITIES = JSON.parse(readReviewedIdentityData(new URL('./reviewed-identities.json', import.meta.url), 'utf8'));
+// Only exact reviewed key/source pairs are exempt; all other English copies count.
+function isReviewedIdentity(locale, key, source) {
+  const row = REVIEWED_IDENTITIES.locales[locale]?.[key];
+  return row?.source === source && typeof row.reason === 'string' && row.reason.length > 0;
+}
 // i18n.test.js — every string key used in js/*.js exists in all nine locales
 // with the same {placeholders} as US English, and every content name (levels,
 // challenge blurbs, coach steps, worlds, achievements, cosmetics) is translated.
@@ -8,7 +15,7 @@ import { LEVELS, TUTORIALS, CHALLENGES, WORLDS } from '../js/levels.js';
 import { ACHIEVEMENTS, COSMETICS } from '../js/content.js';
 
 const STRINGS = JSON.parse(readFileSync(new URL('../assets/strings.json', import.meta.url), 'utf8'));
-const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT'];
+const LOCALES = ['en-US', 'en-GB', 'es-419', 'es-ES', 'de-DE', 'fr-FR', 'fr-CA', 'pt-BR', 'it-IT', 'fr-BE', 'de-BE', 'en-SG', 'en-HK', 'en-BQ', 'es-CO', 'de-IT', 'fr-IT', 'es-CL', 'es-AR', 'es-EC', 'ja-JP', 'nl-BE', 'zh-SG', 'ms-SG', 'zh-HK', 'yue-HK', 'nl-NL', 'fi-FI', 'sv-FI', 'et-EE', 'id-ID', 'vi-VN', 'de-BR', 'ta-SG', 'da-DE', 'lb-BE', 'eu-FR', 'ca-FR', 'oc-FR', 'sl-IT', 'ca-IT', 'oc-IT', 'ru-FI', 'ca-ES', 'eu-ES', 'gl-ES', 'ru-EE', 'su-ID', 'co-FR', 'fur-IT', 'bew-ID', 'km-VN'];
 const code = readdirSync(new URL('../native/', import.meta.url)).filter((f) => f.endsWith('.ts'))
   .map((f) => readFileSync(new URL('../native/' + f, import.meta.url), 'utf8')).join('\n');
 const used = new Set();
@@ -43,7 +50,7 @@ test('English content strings match the authored data', () => {
 });
 test('non-English locales are translated', () => {
   for (const loc of LOCALES.filter((l) => !l.startsWith('en'))) {
-    const same = [...used].filter((k) => STRINGS[loc][k] === STRINGS['en-US'][k]);
+    const same = ([...used].filter((k) => STRINGS[loc][k] === STRINGS['en-US'][k])).filter((key) => !isReviewedIdentity(loc, key, STRINGS['en-US'][key]));
     assert.ok(same.length < 12, `${loc}: ${same.join(', ')}`);
   }
 });

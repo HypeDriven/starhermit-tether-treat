@@ -1,3 +1,4 @@
+import { withLanguageRender as __l10nRender } from "./l10n/menu.ts";
 // Tether Treat on the StarHermit engine: the entry module (starhermit.txt
 // engine.entry), played natively by the StarHermit client and in browsers by
 // the engine's web runtime. The fixed-point physics and rules (js/physics.js,
@@ -552,7 +553,7 @@ onUpdate((dt) => {
   app.toasts = app.toasts.filter((x) => x.until >= t);
   if (app.tip && app.tip.until < t) app.tip = null;
 });
-onRender((alpha) => {
+onRender(__l10nRender((alpha) => {
   const wasActive = app.phase === "active" && app.screen === null;
   drawScreens();
   // queued after this frame's presses (later), so they act on this frame's scene
@@ -562,4 +563,8 @@ onRender((alpha) => {
     if (s) render.update(s.state, app.prevTreat, app.phase === "active" ? alpha : 1, frameDt);
     flushAnnouncements();
   });
-});
+}));
+
+// localization-runtime:menu
+import { installLanguageMenu as __installLanguageMenu } from "./l10n/menu.ts";
+__installLanguageMenu(false);

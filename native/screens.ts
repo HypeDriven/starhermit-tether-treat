@@ -115,7 +115,7 @@ function flow(label: string, list: Btn[], width: number, gap = 8): ui.Rect {
 }
 
 // ------------------------------------------------------------------ the frame
-export function drawScreens(): void {
+function drawScreensImmediate(): void {
   const L = layoutNow();
   const f = frame();
   const inRound = !!app.session && app.phase !== "title";
@@ -140,7 +140,6 @@ export function drawScreens(): void {
   if (app.countdown !== null) countdown(L);
   overlay(L);
   if (app.tip) tooltip(L);
-  toasts(L);
   if (app.focusNext && primaryPointer() !== "coarse") {
     const age = f.frame - app.openedFrame;
     if (age >= 1) ui.setFocus(app.focusNext);
@@ -255,16 +254,6 @@ function tooltip(L: Layout): void {
   const x = Math.max(8, Math.min(L.lw - w - 8, (t.x - L.ox) / L.sc - w / 2)), y = Math.max(8, (t.y - L.oy) / L.sc - h);
   ui.place("tip", { x, y }, () => {
     lastSize.set("tip", ui.column("tip-col", () => para(t.text, w - 26, "tip-text", "tip-text"), { style: "tip", width: w }));
-  });
-}
-function toasts(L: Layout): void {
-  if (!app.toasts.length) return;
-  const w = Math.min(L.lw - 32, 560);
-  const where = app.screen ? { anchor: "top" as const, y: 8 } : { anchor: "bottom-end" as const, x: 16, y: 16 };
-  ui.place("toast-stack", where, () => {
-    ui.column("toast-col", () => {
-      app.toasts.forEach((t, i) => ui.column(`toast-${i}`, () => para(t.text, w - 32, "toast-text", `toast-${i}-text`), { style: "toast" }));
-    }, { spacing: 8, align: "end" });
   });
 }
 
@@ -635,3 +624,10 @@ function pauseScreen(w: number): void {
   void bw;
 }
 export { closeScreen };
+
+export function drawScreens(): void {
+  if (app.screen !== "help") { drawScreensImmediate(); return; }
+  const actions = ["prev","next","confirm","pause","undo","hint","restart","camera"];
+  const version = JSON.stringify([(app as any).settings ?? (app as any).options ?? {}, (platform as any).options ?? {}, actions.map((action) => bindings(action))]);
+  ui.retain!("help-screen", version, drawScreensImmediate);
+}

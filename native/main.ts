@@ -76,8 +76,7 @@ function flushAnnouncements(): void {
 }
 /** ui.js toast: 4.2 s. */
 export function toast(text: string): void {
-  app.toasts.push({ text, until: now() + 4.2 });
-  if (app.toasts.length > 3) app.toasts.shift();
+  ui.toast!(text, { duration: 4.2, position: app.screen ? "top" : "bottom", offset: app.screen ? 8 : 16, style: "toast", dismissible: false });
   announce(text);
 }
 /** A widget's press, run once the frame's UI is built (state changes mid-build would break later widgets). */

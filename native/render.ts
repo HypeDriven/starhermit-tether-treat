@@ -751,6 +751,7 @@ export function applyLook(next: Look): void {
     vignette: { amount: 0.28, inner: 0.38, outer: 0.9, scale: [1.1, 1] },
   } : null;
   renderer.antialias = next.antialias;
+  renderer.motionBlur = next.bloom !== null ? { intensity: 0.25, samples: 8, maxPixels: 16, targetFps: 60, camera: false } : null;
   const changed = !prev || prev.detailed !== next.detailed || prev.particles !== next.particles || prev.budget.material !== next.budget.material ||
     prev.budget.segments !== next.budget.segments || prev.budget.texture !== next.budget.texture || prev.budget.pool.high !== next.budget.pool.high ||
     prev.budget.motes !== next.budget.motes;

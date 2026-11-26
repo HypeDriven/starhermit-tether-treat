@@ -39,7 +39,7 @@
     "native/render.ts": {"sha256": "842810c4950ce80038bd6126463469a1689aa3a540b5cd4d4321cef36c995a3c", "size": 52593},
     "native/screens.ts": {"sha256": "d1fac61a4393cbe952a18a18bd6d8b3e10bdd6d4e178e1db714eeff6527be266", "size": 34561},
     "native/style.ts": {"sha256": "eaca6af3bdeb147c9585e2d0de84d993aa0247f3fde414285611fa6e88c2bae1", "size": 2982},
-    "publication.json": {"sha256": "7f4d1dcb65d6df5ff9e1e6259646ccd833cdd414a34083e7c3d0dec068afc6e5", "size": 4124},
+    "publication.json": {"sha256": "6c28156c9540dc64ca7a74c4a14965c96cfa18ac1b4aaeae140e45e40ca45d28", "size": 4124},
     "score-script.js": {"sha256": "4133359e8234cac920651c89f79485aa401cdca970720662e50150de4431f600", "size": 2487},
     "sfx/bubble-attach.opus": {"sha256": "e96ecdfd09248376d2d719f96d9556bd0c3bd29be049bbd44c3514f1829dfda4", "size": 13322},
     "sfx/bubble-pop.opus": {"sha256": "b1999211327da871b1b112fa9be218b1d4734d7e7661cd3423456abdcc06c466", "size": 13792},

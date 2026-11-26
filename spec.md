@@ -1,6 +1,6 @@
 # Tether Treat — Product and Game Specification
 
-**Document status:** running specification of the game on the StarHermit engine 1.47.0.
+**Document status:** running specification of the game on the StarHermit engine 1.50.0.
 **Game index:** 52  
 **Genre:** Physics sequencing puzzle  
 **Players:** 1 player; optional asynchronous score comparison  
@@ -171,9 +171,9 @@ Follow the skill pack's acceptance gate: deterministic seeds, debug views for co
 - Avoid runtime shader compilation during active play by prewarming required variants. Avoid per-frame allocations in simulation/render loops.
 - Quality tiers independently control shadows, environment detail, particles, post effects, antialiasing, and render scale; they never alter rules or visibility of hazards.
 
-## 5. Technical architecture (StarHermit engine 1.47.0, host API 1.47, engine.minor 39)
+## 5. Technical architecture (StarHermit engine 1.50.0, host API 1.50, engine.minor 39)
 
-A StarHermit engine script game (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.47.0`, `engine.minor=47`, capabilities platform, storage, clipboard), played natively by the StarHermit client and in browsers by the engine's web runtime through the loader `index.html` that `npm run package` writes with `starhermit-files.json`.
+A StarHermit engine script game (`starhermit.txt`: `engine.entry=native/main.ts`, `engine.version=1.50.0`, `engine.minor=50`, capabilities platform, storage, clipboard), played natively by the StarHermit client and in browsers by the engine's web runtime through the loader `index.html` that `npm run package` writes with `starhermit-files.json`.
 
 - `js/` (pure, shared with node tests and `server.js`): `physics.js` (integer fixed-point physics, 120 Hz), `rules.js`, `rng.js`, `content.js` (themes, generators, validators, hints, achievements, cosmetics), `levels.js`, `session.js` (validated commands, undo, lesson steps, settle), `save.js` (save model), `strings.js` / `sh-i18n.js` (nine locales).
 - `native/main.ts`: the state machine (title → screens → countdown → active ⇄ paused → resolving → results), the simulation on the runtime's fixed steps (`setFixedRate(120)`: one rules tick per step; the countdown — 3, 2, 1, Go! at 0.65 s each, or Go! for 0.4 s under reduced motion — and the 1.3 s / 0.3 s resolve delay are counted in steps), actions, input, results and lifecycle (a hidden window pauses the round).
@@ -255,9 +255,9 @@ The string tables include complete regional variants for `fr-BE`, `de-BE`, `en-S
 
 <!-- regional-localization:end -->
 
-## Engine 1.47.0
+## Engine 1.50.0
 
-Browser play uses the WebGPU-only StarHermit 1.47.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
+Browser play uses the WebGPU-only StarHermit 1.50.0 web runtime. Automatic ray-traced shadows are enabled on supported Vulkan devices, with mapped-shadow fallbacks elsewhere. Packaging creates block-compressed runtime textures and compressed glTF copies, retaining original image fallbacks.
 
 The help screen replays through retained native UI while its contents, options, layout and key bindings are unchanged.
 

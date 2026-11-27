@@ -12,7 +12,7 @@
     "metadataSource": "starhermit.txt",
     "createdAt": "2026-09-01T09:42:24.19279+00:00",
     "coverArtSource": "manifest",
-    "coverArtUpdatedAt": "2026-11-26T22:45:15.032802+00:00",
+    "coverArtUpdatedAt": "2026-11-27T17:08:03.44454+00:00",
     "submittedByUserId": "2712e04e-461b-4d23-81ae-e40b429128a8",
     "submittedByUsername": "starhermit",
     "hosting": {
@@ -22,9 +22,9 @@
       "pinnedCommitSha": null,
       "deployedCommitSha": null,
       "deployError": null,
-      "deployedAt": "2026-11-26T22:45:15.022091+00:00",
+      "deployedAt": "2026-11-27T17:08:03.433241+00:00",
       "externalLaunchUrl": null,
-      "engineVersion": "1.51.0",
+      "engineVersion": "1.53.0",
       "deployWarning": null
     },
     "description": "Cut ropes in sequence to swing a treat through stars and deliver it safely to its recipient.",
@@ -36,19 +36,19 @@
     "links": [],
     "isDisabled": false
   },
-  "publishedAt": "2026-11-26T22:45:15.449Z",
-  "sourceCommit": "fca940a2056cb0ada00ea9ed5e933ec5fe21b87f",
-  "bytesReceived": 1731143,
-  "archiveSha256": "b092132ade0dcecf818b7b38904681734ac5d86d0d1f59d54970630837359fa3",
+  "publishedAt": "2026-11-27T17:08:03.678Z",
+  "sourceCommit": "047f263dc78a3aa8dfc16f89e6e25ee1044f0868",
+  "bytesReceived": 1731142,
+  "archiveSha256": "64aff17813b2890e59bd5f2c7ae2a9e115d13ab6fb07253be15314d4af054df5",
   "indexSha256": "56b2066acdc5fa39ab2802e2e8502dc7f5588ece05cdb0c613509ba0b0b5f3c0",
   "result": {
     "clientPublished": true,
     "serverImageLoaded": false,
     "imageDigest": null,
-    "bytesReceived": 1731143,
+    "bytesReceived": 1731142,
     "mode": "replace",
     "filesRemoved": 0,
-    "engineVersion": "1.51.0",
+    "engineVersion": "1.53.0",
     "deployWarning": null
   },
   "liveVerification": {
